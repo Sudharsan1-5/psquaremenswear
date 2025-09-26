@@ -83,15 +83,19 @@ export default function Checkout() {
       return;
     }
 
+    // Calculate total with tax
+    const totalWithTax = total * 1.18;
+    
     // Razorpay configuration
     const options = {
       key: "rzp_test_8M2OUmvdX8Lyg7ByrEoyBiB4", // Your Razorpay testing key
-      amount: Math.round(total * 100), // Amount in paisa
+      amount: Math.round(totalWithTax * 100), // Amount in paisa (including tax)
       currency: "INR",
       name: "TechStore",
       description: "Order Payment",
       image: "/placeholder.svg",
       handler: function (response: any) {
+        console.log("Payment successful:", response);
         // Payment successful
         toast({
           title: "Payment Successful!",
@@ -103,9 +107,10 @@ export default function Checkout() {
             paymentId: response.razorpay_payment_id,
             orderDetails,
             items,
-            total 
+            total: totalWithTax
           }
         });
+        setLoading(false);
       },
       prefill: {
         name: orderDetails.fullName,
@@ -115,19 +120,29 @@ export default function Checkout() {
       theme: {
         color: "#3B82F6",
       },
+      modal: {
+        ondismiss: function() {
+          console.log("Payment modal dismissed");
+          setLoading(false);
+        }
+      }
     };
 
+    console.log("Initializing Razorpay with options:", options);
+    
     const paymentObject = new window.Razorpay(options);
+    
     paymentObject.on('payment.failed', function (response: any) {
+      console.log("Payment failed:", response);
       toast({
         title: "Payment Failed",
-        description: "Please try again or use a different payment method.",
+        description: `Error: ${response.error?.description || "Please try again or use a different payment method."}`,
         variant: "destructive",
       });
+      setLoading(false);
     });
     
     paymentObject.open();
-    setLoading(false);
   };
 
   if (items.length === 0) {
