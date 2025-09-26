@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Package, Truck, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,26 @@ import { Header } from '@/components/Header';
 export default function OrderSuccess() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { paymentId, orderDetails, items, total } = location.state || {};
+  const [searchParams] = useSearchParams();
+  
+  // Try to get data from location.state first, then from URL params
+  let paymentId, orderDetails, items, total;
+  
+  if (location.state) {
+    ({ paymentId, orderDetails, items, total } = location.state);
+  } else {
+    // Fallback: try to get from URL params (for new tab payments)
+    paymentId = searchParams.get('payment_id');
+    const orderDataParam = searchParams.get('order_data');
+    if (orderDataParam) {
+      try {
+        const orderData = JSON.parse(orderDataParam);
+        ({ orderDetails, items, total } = orderData);
+      } catch (error) {
+        console.error('Failed to parse order data from URL:', error);
+      }
+    }
+  }
 
   useEffect(() => {
     if (!paymentId) {

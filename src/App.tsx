@@ -8,6 +8,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Products from "./pages/Products";
 import Checkout from "./pages/Checkout";
+import Pay from "./pages/Pay";
 import OrderSuccess from "./pages/OrderSuccess";
 import NotFound from "./pages/NotFound";
 import { Auth } from "./pages/Auth";
@@ -26,6 +27,7 @@ const App = () => (
               <Route path="/" element={<Products />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/checkout" element={<Checkout />} />
+              <Route path="/pay" element={<Pay />} />
               <Route path="/order-success" element={<OrderSuccess />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

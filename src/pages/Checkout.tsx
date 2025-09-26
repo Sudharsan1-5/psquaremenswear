@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Truck, Shield } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, CreditCard, Truck, Shield, ExternalLink, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -30,7 +30,10 @@ export default function Checkout() {
   const { items, total, clearCart } = useCart();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
+  const [isInIframe, setIsInIframe] = useState(false);
+  const [razorpayLoaded, setRazorpayLoaded] = useState(false);
   const [orderDetails, setOrderDetails] = useState<OrderDetails>({
     fullName: '',
     email: '',
@@ -39,6 +42,45 @@ export default function Checkout() {
     city: '',
     pincode: '',
   });
+
+  useEffect(() => {
+    // Check if running in iframe
+    setIsInIframe(window.self !== window.top);
+
+    // Check for payment errors from URL params
+    const error = searchParams.get('error');
+    const errorDescription = searchParams.get('error_description');
+    if (error && error === 'payment_failed') {
+      toast({
+        title: "Payment Failed",
+        description: errorDescription || "Please try again or use a different payment method.",
+        variant: "destructive",
+      });
+    }
+
+    // Load Razorpay script if not in iframe
+    if (window.self === window.top) {
+      loadRazorpayScript();
+    }
+  }, [searchParams, toast]);
+
+  const loadRazorpayScript = () => {
+    if (window.Razorpay) {
+      setRazorpayLoaded(true);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => {
+      console.log('Razorpay script loaded');
+      setRazorpayLoaded(true);
+    };
+    script.onerror = () => {
+      console.error('Failed to load Razorpay script');
+    };
+    document.body.appendChild(script);
+  };
 
   const handleInputChange = (field: keyof OrderDetails, value: string) => {
     setOrderDetails(prev => ({ ...prev, [field]: value }));
@@ -49,14 +91,28 @@ export default function Checkout() {
     return required.every(field => orderDetails[field as keyof OrderDetails].trim() !== '');
   };
 
-  const initializeRazorpay = () => {
-    return new Promise((resolve) => {
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
+  const handlePayInNewTab = () => {
+    if (!validateForm()) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Store order data in session storage
+    const orderData = {
+      orderDetails,
+      items,
+      total
+    };
+    
+    sessionStorage.setItem('checkout_order_data', JSON.stringify(orderData));
+    
+    // Open payment in new tab
+    const payUrl = new URL('/pay', window.location.origin);
+    window.open(payUrl.toString(), '_blank', 'noopener,noreferrer');
   };
 
   const handlePayment = async () => {
@@ -71,12 +127,11 @@ export default function Checkout() {
 
     setLoading(true);
 
-    // Initialize Razorpay
-    const res = await initializeRazorpay();
-    if (!res) {
+    // Check if Razorpay is loaded
+    if (!razorpayLoaded || !window.Razorpay) {
       toast({
         title: "Payment Error",
-        description: "Failed to load payment gateway. Please try again.",
+        description: "Payment gateway is not ready. Please try again.",
         variant: "destructive",
       });
       setLoading(false);
@@ -86,17 +141,22 @@ export default function Checkout() {
     // Calculate total with tax
     const totalWithTax = total * 1.18;
     
-    // Razorpay configuration
+    // Enhanced Razorpay configuration
     const options = {
-      key: "rzp_test_8M2OUmvdX8Lyg7ByrEoyBiB4", // Your Razorpay testing key
+      key: import.meta.env.VITE_RAZORPAY_KEY || "rzp_test_8M2OUmvdX8Lyg7ByrEoyBiB4",
       amount: Math.round(totalWithTax * 100), // Amount in paisa (including tax)
       currency: "INR",
       name: "TechStore",
       description: "Order Payment",
       image: "/placeholder.svg",
+      method: {
+        upi: true,
+        card: true,
+        wallet: true,
+        netbanking: true
+      },
       handler: function (response: any) {
         console.log("Payment successful:", response);
-        // Payment successful
         toast({
           title: "Payment Successful!",
           description: `Payment ID: ${response.razorpay_payment_id}`,
@@ -175,6 +235,25 @@ export default function Checkout() {
           </Button>
           <h1 className="text-3xl font-bold">Checkout</h1>
         </div>
+
+        {/* Iframe Detection Banner */}
+        {isInIframe && (
+          <Card className="mb-6 border-amber-200 bg-amber-50 dark:bg-amber-950/50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                <div className="flex-1">
+                  <p className="font-medium text-amber-800 dark:text-amber-200">
+                    For secure payments, checkout opens in a new tab
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    Payment gateways work best in full browser windows
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Order Form */}
@@ -302,15 +381,27 @@ export default function Checkout() {
                   </div>
                 </div>
 
-                <Button
-                  onClick={handlePayment}
-                  disabled={loading}
-                  className="w-full bg-gradient-primary hover:shadow-glow transition-all duration-300"
-                  size="lg"
-                >
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  {loading ? "Processing..." : `Pay ₹${(total * 1.18).toFixed(2)}`}
-                </Button>
+                {isInIframe ? (
+                  <Button
+                    onClick={handlePayInNewTab}
+                    disabled={loading}
+                    className="w-full bg-gradient-primary hover:shadow-glow transition-all duration-300"
+                    size="lg"
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Pay in New Tab ₹{(total * 1.18).toFixed(2)}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handlePayment}
+                    disabled={loading || !razorpayLoaded}
+                    className="w-full bg-gradient-primary hover:shadow-glow transition-all duration-300"
+                    size="lg"
+                  >
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    {loading ? "Processing..." : `Pay ₹${(total * 1.18).toFixed(2)}`}
+                  </Button>
+                )}
 
                 <p className="text-xs text-muted-foreground text-center">
                   By proceeding, you agree to our Terms of Service and Privacy Policy
