@@ -85,7 +85,7 @@ export default function Checkout() {
 
     // Razorpay configuration
     const options = {
-      key: "rzp_test_sample_key", // Replace with your Razorpay key
+      key: "rzp_test_8M2OUmvdX8Lyg7ByrEoyBiB4", // Your Razorpay testing key
       amount: Math.round(total * 100), // Amount in paisa
       currency: "INR",
       name: "TechStore",
