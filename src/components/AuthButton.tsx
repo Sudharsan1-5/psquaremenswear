@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { LogOut, User, Shield } from 'lucide-react';
 export const AuthButton: React.FC = () => {
   const {
@@ -13,13 +14,20 @@ export const AuthButton: React.FC = () => {
     loading,
     isAdmin
   } = useAuth();
+  const navigate = useNavigate();
   if (loading) {
     return <div className="w-10 h-10 bg-muted animate-pulse rounded-full" />;
   }
   if (!user) {
-    return <Button onClick={signInWithGoogle} variant="outline" className="bg-white/10 border-white/20 hover:bg-white/20 text-slate-950 mx-0 px-0 py-0">
-        Sign in with Google
-      </Button>;
+    return (
+      <Button 
+        onClick={() => navigate('/auth')} 
+        variant="outline" 
+        className="bg-white/10 border-white/20 hover:bg-white/20 text-slate-950"
+      >
+        Sign In
+      </Button>
+    );
   }
   return <DropdownMenu>
       <DropdownMenuTrigger asChild>
