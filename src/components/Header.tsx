@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { CartSidebar } from './CartSidebar';
+import { AuthButton } from '@/components/AuthButton';
 
 export function Header() {
   const { itemCount } = useCart();
@@ -47,6 +48,8 @@ export function Header() {
               <CartSidebar />
             </SheetContent>
           </Sheet>
+
+          <AuthButton />
 
           <Button variant="outline" size="icon" className="md:hidden">
             <Menu className="h-4 w-4" />
