@@ -28,7 +28,7 @@ export default function Pay() {
 
   useEffect(() => {
     // Check if we have order data in sessionStorage
-    const storedOrderData = sessionStorage.getItem('checkout_order_data');
+    const storedOrderData = localStorage.getItem('checkout_order_data') || sessionStorage.getItem('checkout_order_data');
     if (!storedOrderData) {
       toast({
         title: "Session Expired",
@@ -118,7 +118,8 @@ export default function Pay() {
       handler: function (response: any) {
         console.log("Payment successful:", response);
         
-        // Clear session storage
+        // Clear stored order data
+        localStorage.removeItem('checkout_order_data');
         sessionStorage.removeItem('checkout_order_data');
         
         // Redirect to success page
@@ -241,6 +242,7 @@ export default function Pay() {
               variant="ghost" 
               size="sm"
               onClick={() => {
+                localStorage.removeItem('checkout_order_data');
                 sessionStorage.removeItem('checkout_order_data');
                 navigate('/checkout');
               }}

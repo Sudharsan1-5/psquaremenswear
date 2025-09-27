@@ -108,7 +108,7 @@ export default function Checkout() {
       total
     };
     
-    sessionStorage.setItem('checkout_order_data', JSON.stringify(orderData));
+    localStorage.setItem('checkout_order_data', JSON.stringify(orderData));
     
     // Open payment in new tab
     const payUrl = new URL('/pay', window.location.origin);
