@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      orders: {
+        Row: {
+          amount_paise: number
+          created_at: string
+          currency: string
+          id: string
+          items: Json
+          order_details: Json | null
+          razorpay_order_id: string | null
+          razorpay_payment_id: string | null
+          razorpay_signature: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          amount_paise: number
+          created_at?: string
+          currency?: string
+          id?: string
+          items: Json
+          order_details?: Json | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount_paise?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          items?: Json
+          order_details?: Json | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
