@@ -9,6 +9,8 @@ import { Separator } from '@/components/ui/separator';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
 import { Header } from '@/components/Header';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Mock Razorpay integration
 declare global {
@@ -42,6 +44,7 @@ export default function Checkout() {
     city: '',
     pincode: '',
   });
+  const { user } = useAuth();
 
   useEffect(() => {
     // Check if running in iframe
@@ -125,9 +128,14 @@ export default function Checkout() {
       return;
     }
 
+    if (!user) {
+      toast({ title: "Login required", description: "Please sign in to continue." });
+      navigate('/auth');
+      return;
+    }
+
     setLoading(true);
 
-    // Check if Razorpay is loaded
     if (!razorpayLoaded || !window.Razorpay) {
       toast({
         title: "Payment Error",
@@ -138,71 +146,99 @@ export default function Checkout() {
       return;
     }
 
-    // Calculate total with tax
-    const totalWithTax = total * 1.18;
-    
-    // Enhanced Razorpay configuration
-    const options = {
-      key: import.meta.env.VITE_RAZORPAY_KEY || "rzp_test_8M2OUmvdX8Lyg7ByrEoyBiB4",
-      amount: Math.round(totalWithTax * 100), // Amount in paisa (including tax)
-      currency: "INR",
-      name: "TechStore",
-      description: "Order Payment",
-      image: "/placeholder.svg",
-      method: {
-        upi: true,
-        card: true,
-        wallet: true,
-        netbanking: true
-      },
-      handler: function (response: any) {
-        console.log("Payment successful:", response);
-        toast({
-          title: "Payment Successful!",
-          description: `Payment ID: ${response.razorpay_payment_id}`,
-        });
-        clearCart();
-        navigate('/order-success', { 
-          state: { 
-            paymentId: response.razorpay_payment_id,
-            orderDetails,
-            items,
-            total: totalWithTax
+    try {
+      const { data, error } = await supabase.functions.invoke('create-order', {
+        body: { items, orderDetails },
+      });
+
+      if (error || !data?.razorpayOrderId) {
+        throw new Error(error?.message || 'Failed to create order');
+      }
+
+      const { razorpayOrderId, keyId, amount, currency } = data;
+
+      const options = {
+        key: keyId,
+        amount,
+        currency,
+        name: "TechStore",
+        description: "Order Payment",
+        image: "/placeholder.svg",
+        order_id: razorpayOrderId,
+        handler: async function (response: any) {
+          try {
+            const verifyRes = await supabase.functions.invoke('verify-payment', {
+              body: {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              },
+            });
+
+            if (verifyRes.error || !verifyRes.data?.success) {
+              throw new Error(verifyRes.error?.message || 'Payment verification failed');
+            }
+
+            toast({
+              title: "Payment Successful!",
+              description: `Payment ID: ${response.razorpay_payment_id}`,
+            });
+            const totalWithTax = total * 1.18;
+            clearCart();
+            navigate('/order-success', {
+              state: {
+                paymentId: response.razorpay_payment_id,
+                orderDetails,
+                items,
+                total: totalWithTax,
+              },
+            });
+          } catch (err) {
+            toast({
+              title: 'Verification Failed',
+              description: (err as Error).message,
+              variant: 'destructive',
+            });
+            navigate('/checkout?error=payment_failed&error_description=Verification%20failed');
+          } finally {
+            setLoading(false);
           }
+        },
+        prefill: {
+          name: orderDetails.fullName,
+          email: orderDetails.email,
+          contact: orderDetails.phone,
+        },
+        theme: { color: "#3B82F6" },
+        modal: {
+          ondismiss: function () {
+            setLoading(false);
+          },
+        },
+        method: { upi: true, card: true, wallet: true, netbanking: true },
+      } as any;
+
+      const paymentObject = new window.Razorpay(options);
+
+      paymentObject.on('payment.failed', function (response: any) {
+        toast({
+          title: "Payment Failed",
+          description: `Error: ${response.error?.description || "Please try again or use a different payment method."}`,
+          variant: "destructive",
         });
         setLoading(false);
-      },
-      prefill: {
-        name: orderDetails.fullName,
-        email: orderDetails.email,
-        contact: orderDetails.phone,
-      },
-      theme: {
-        color: "#3B82F6",
-      },
-      modal: {
-        ondismiss: function() {
-          console.log("Payment modal dismissed");
-          setLoading(false);
-        }
-      }
-    };
-
-    console.log("Initializing Razorpay with options:", options);
-    
-    const paymentObject = new window.Razorpay(options);
-    
-    paymentObject.on('payment.failed', function (response: any) {
-      console.log("Payment failed:", response);
-      toast({
-        title: "Payment Failed",
-        description: `Error: ${response.error?.description || "Please try again or use a different payment method."}`,
-        variant: "destructive",
+        const checkoutUrl = new URL('/checkout', window.location.origin);
+        checkoutUrl.searchParams.set('error', 'payment_failed');
+        checkoutUrl.searchParams.set('error_description', response.error?.description || 'Payment failed');
+        window.location.href = checkoutUrl.toString();
       });
+
+      paymentObject.open();
+    } catch (e: any) {
+      console.error('Payment init error', e);
+      toast({ title: 'Payment Error', description: e?.message || 'Something went wrong', variant: 'destructive' });
       setLoading(false);
-    });
-    
-    paymentObject.open();
+    }
   };
 
   if (items.length === 0) {
