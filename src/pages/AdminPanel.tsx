@@ -9,11 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Users, ShoppingBag, DollarSign, Activity, ArrowLeft, Search, Filter, Plus, Edit, Trash2, Package } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Users, ShoppingBag, DollarSign, Activity, ArrowLeft, Search, Plus, Trash2, Package } from 'lucide-react';
 
 interface User {
   id: string;
@@ -183,6 +183,71 @@ export default function AdminPanel() {
     }
   };
 
+  const addProduct = async () => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .insert([{
+          name: newProduct.name,
+          price: parseFloat(newProduct.price),
+          category: newProduct.category,
+          description: newProduct.description,
+          stock: parseInt(newProduct.stock),
+          image_url: newProduct.image_url || null
+        }]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Product added successfully",
+      });
+
+      setNewProduct({
+        name: '',
+        price: '',
+        category: '',
+        description: '',
+        stock: '',
+        image_url: ''
+      });
+      setIsAddProductOpen(false);
+      await fetchData();
+    } catch (error) {
+      console.error('Error adding product:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add product",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteProduct = async (productId: string) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Product deleted successfully",
+      });
+
+      await fetchData();
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete product",
+        variant: "destructive",
+      });
+    }
+  };
+
   const formatCurrency = (amount: number, currency: string) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -219,71 +284,6 @@ export default function AdminPanel() {
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const addProduct = async () => {
-    try {
-      const { error } = await supabase
-        .from('products')
-        .insert([{
-          name: newProduct.name,
-          price: parseFloat(newProduct.price),
-          category: newProduct.category,
-          description: newProduct.description,
-          stock: parseInt(newProduct.stock),
-          image_url: newProduct.image_url || null
-        }]);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Product added successfully",
-      });
-
-      setIsAddProductOpen(false);
-      setNewProduct({
-        name: '',
-        price: '',
-        category: '',
-        description: '',
-        stock: '',
-        image_url: ''
-      });
-      await fetchData();
-    } catch (error) {
-      console.error('Error adding product:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add product",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const deleteProduct = async (productId: string) => {
-    try {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', productId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Product deleted successfully",
-      });
-
-      await fetchData();
-    } catch (error) {
-      console.error('Error deleting product:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete product",
-        variant: "destructive",
-      });
-    }
-  };
 
   const totalRevenue = orders
     .filter(order => order.status === 'paid')
@@ -529,13 +529,28 @@ export default function AdminPanel() {
           <TabsContent value="products" className="space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Product Catalog</CardTitle>
-                    <CardDescription>
-                      Manage your product inventory
-                    </CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Product Catalog
+                </CardTitle>
+                <CardDescription>
+                  Manage your product inventory
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="relative flex-1 max-w-sm">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search products..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-8"
+                      />
+                    </div>
                   </div>
+                  
                   <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
                     <DialogTrigger asChild>
                       <Button>
@@ -547,100 +562,76 @@ export default function AdminPanel() {
                       <DialogHeader>
                         <DialogTitle>Add New Product</DialogTitle>
                         <DialogDescription>
-                          Enter the product details below.
+                          Add a new product to your catalog.
                         </DialogDescription>
                       </DialogHeader>
                       <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="name" className="text-right">
-                            Name
-                          </Label>
+                        <div className="grid gap-2">
+                          <Label htmlFor="name">Name</Label>
                           <Input
                             id="name"
                             value={newProduct.name}
-                            onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                            className="col-span-3"
+                            onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                            placeholder="Product name"
                           />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="price" className="text-right">
-                            Price
-                          </Label>
+                        <div className="grid gap-2">
+                          <Label htmlFor="price">Price</Label>
                           <Input
                             id="price"
                             type="number"
                             step="0.01"
                             value={newProduct.price}
-                            onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
-                            className="col-span-3"
+                            onChange={(e) => setNewProduct({...newProduct, price: e.target.value})}
+                            placeholder="0.00"
                           />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="category" className="text-right">
-                            Category
-                          </Label>
+                        <div className="grid gap-2">
+                          <Label htmlFor="category">Category</Label>
                           <Input
                             id="category"
                             value={newProduct.category}
-                            onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                            className="col-span-3"
+                            onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
+                            placeholder="Product category"
                           />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="stock" className="text-right">
-                            Stock
-                          </Label>
+                        <div className="grid gap-2">
+                          <Label htmlFor="stock">Stock</Label>
                           <Input
                             id="stock"
                             type="number"
                             value={newProduct.stock}
-                            onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
-                            className="col-span-3"
+                            onChange={(e) => setNewProduct({...newProduct, stock: e.target.value})}
+                            placeholder="Stock quantity"
                           />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="image_url" className="text-right">
-                            Image URL
-                          </Label>
+                        <div className="grid gap-2">
+                          <Label htmlFor="image_url">Image URL</Label>
                           <Input
                             id="image_url"
                             value={newProduct.image_url}
-                            onChange={(e) => setNewProduct({ ...newProduct, image_url: e.target.value })}
-                            className="col-span-3"
+                            onChange={(e) => setNewProduct({...newProduct, image_url: e.target.value})}
+                            placeholder="Product image URL"
                           />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="description" className="text-right">
-                            Description
-                          </Label>
+                        <div className="grid gap-2">
+                          <Label htmlFor="description">Description</Label>
                           <Textarea
                             id="description"
                             value={newProduct.description}
-                            onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-                            className="col-span-3"
+                            onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
+                            placeholder="Product description"
                           />
                         </div>
                       </div>
-                      <DialogFooter>
-                        <Button type="submit" onClick={addProduct}>
-                          Add Product
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setIsAddProductOpen(false)}>
+                          Cancel
                         </Button>
-                      </DialogFooter>
+                        <Button onClick={addProduct}>Add Product</Button>
+                      </div>
                     </DialogContent>
                   </Dialog>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center space-x-2 mb-4">
-                  <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search products..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-8"
-                    />
-                  </div>
                 </div>
 
                 {loading ? (
@@ -654,6 +645,7 @@ export default function AdminPanel() {
                         <TableHead>Price</TableHead>
                         <TableHead>Stock</TableHead>
                         <TableHead>Rating</TableHead>
+                        <TableHead>Created</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -661,28 +653,28 @@ export default function AdminPanel() {
                       {filteredProducts.map((product) => (
                         <TableRow key={product.id}>
                           <TableCell>
-                            <div className="flex items-center space-x-3">
+                            <div className="flex items-center gap-3">
                               {product.image_url && (
                                 <img 
                                   src={product.image_url} 
                                   alt={product.name}
-                                  className="w-10 h-10 rounded object-cover"
+                                  className="w-10 h-10 object-cover rounded-md"
                                 />
                               )}
                               <div>
                                 <div className="font-medium">{product.name}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  {product.description?.slice(0, 50)}...
-                                </div>
+                                {product.description && (
+                                  <div className="text-xs text-muted-foreground line-clamp-1">
+                                    {product.description}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline">{product.category}</Badge>
                           </TableCell>
-                          <TableCell>
-                            ${product.price.toFixed(2)}
-                          </TableCell>
+                          <TableCell>${product.price}</TableCell>
                           <TableCell>
                             <Badge variant={product.stock > 10 ? 'default' : product.stock > 0 ? 'secondary' : 'destructive'}>
                               {product.stock} units
@@ -692,7 +684,10 @@ export default function AdminPanel() {
                             {product.rating ? `⭐ ${product.rating}` : 'No rating'}
                           </TableCell>
                           <TableCell>
-                            <div className="flex space-x-2">
+                            {new Date(product.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
                               <Button
                                 variant="destructive"
                                 size="sm"
