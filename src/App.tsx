@@ -12,6 +12,7 @@ import Pay from "./pages/Pay";
 import OrderSuccess from "./pages/OrderSuccess";
 import NotFound from "./pages/NotFound";
 import { Auth } from "./pages/Auth";
+import AdminPanel from "./pages/AdminPanel";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Products />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/admin" element={<AdminPanel />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/pay" element={<Pay />} />
               <Route path="/order-success" element={<OrderSuccess />} />

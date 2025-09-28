@@ -54,7 +54,7 @@ export const AuthButton: React.FC = () => {
           <User className="mr-2 h-4 w-4" />
           <span>Profile</span>
         </DropdownMenuItem>
-        {isAdmin && <DropdownMenuItem>
+        {isAdmin && <DropdownMenuItem onClick={() => navigate('/admin')}>
             <Shield className="mr-2 h-4 w-4" />
             <span>Admin Panel</span>
           </DropdownMenuItem>}
