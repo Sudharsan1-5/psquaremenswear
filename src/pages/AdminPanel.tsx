@@ -65,7 +65,7 @@ export default function AdminPanel() {
     category: '',
     description: '',
     stock: '',
-    image_url: ''
+    image_file: null as File | null
   });
 
   useEffect(() => {
@@ -185,6 +185,27 @@ export default function AdminPanel() {
 
   const addProduct = async () => {
     try {
+      let imageUrl = null;
+      
+      // Upload image if provided
+      if (newProduct.image_file) {
+        const fileExt = newProduct.image_file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('product-images')
+          .upload(fileName, newProduct.image_file);
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(fileName);
+        
+        imageUrl = publicUrl;
+      }
+
       const { error } = await supabase
         .from('products')
         .insert([{
@@ -193,7 +214,7 @@ export default function AdminPanel() {
           category: newProduct.category,
           description: newProduct.description,
           stock: parseInt(newProduct.stock),
-          image_url: newProduct.image_url || null
+          image_url: imageUrl
         }]);
 
       if (error) throw error;
@@ -209,7 +230,7 @@ export default function AdminPanel() {
         category: '',
         description: '',
         stock: '',
-        image_url: ''
+        image_file: null
       });
       setIsAddProductOpen(false);
       await fetchData();
@@ -606,12 +627,12 @@ export default function AdminPanel() {
                           />
                         </div>
                         <div className="grid gap-2">
-                          <Label htmlFor="image_url">Image URL</Label>
+                          <Label htmlFor="image_file">Product Image</Label>
                           <Input
-                            id="image_url"
-                            value={newProduct.image_url}
-                            onChange={(e) => setNewProduct({...newProduct, image_url: e.target.value})}
-                            placeholder="Product image URL"
+                            id="image_file"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setNewProduct({...newProduct, image_file: e.target.files?.[0] || null})}
                           />
                         </div>
                         <div className="grid gap-2">
