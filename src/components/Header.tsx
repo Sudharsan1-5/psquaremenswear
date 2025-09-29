@@ -15,7 +15,7 @@ export function Header() {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            TechStore
+            P SQUARE
           </h1>
         </div>
 
@@ -23,7 +23,7 @@ export function Header() {
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Search products..."
+              placeholder="Search clothing..."
               className="pl-10 bg-muted/50 border-0 focus-visible:ring-1"
             />
           </div>

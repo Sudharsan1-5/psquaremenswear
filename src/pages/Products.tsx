@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 
-const categories = ['All', 'Audio', 'Mobile', 'Computing', 'Wearables'];
+const categories = ['All', 'T-Shirts', 'Shirts', 'Jeans', 'Formal Wear', 'Casual Wear'];
 
 export default function Products() {
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -43,10 +43,10 @@ export default function Products() {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-4 bg-gradient-primary bg-clip-text text-transparent">
-            Our Products
+            P SQUARE MEN'S WEAR
           </h1>
           <p className="text-lg text-muted-foreground mb-6">
-            Discover our premium collection of tech products
+            Premium collection of men's clothing with unmatched style and quality
           </p>
           
           <div className="flex flex-wrap gap-2">
