@@ -1,14 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ProductCard } from '@/components/ProductCard';
 import { Header } from '@/components/Header';
-import { products } from '@/data/products';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
 
 const categories = ['All', 'Audio', 'Mobile', 'Computing', 'Wearables'];
 
 export default function Products() {
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredProducts = selectedCategory === 'All' 
     ? products 
@@ -45,18 +67,26 @@ export default function Products() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-
-        {filteredProducts.length === 0 && (
+        {loading ? (
           <div className="text-center py-12">
-            <p className="text-lg text-muted-foreground">
-              No products found in this category.
-            </p>
+            <p className="text-lg text-muted-foreground">Loading products...</p>
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
+              {filteredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+
+            {filteredProducts.length === 0 && !loading && (
+              <div className="text-center py-12">
+                <p className="text-lg text-muted-foreground">
+                  No products found in this category.
+                </p>
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>
