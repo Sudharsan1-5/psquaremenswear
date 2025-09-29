@@ -4,9 +4,9 @@ export interface Product {
   id: string;
   name: string;
   price: number;
-  image: string;
+  image_url: string | null;
   category: string;
-  description: string;
+  description: string | null;
   rating: number;
   stock: number;
 }

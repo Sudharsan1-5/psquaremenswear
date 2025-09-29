@@ -381,11 +381,20 @@ export default function Checkout() {
                 {items.map((item) => (
                   <div key={item.id} className="flex justify-between items-center">
                     <div className="flex items-center space-x-3">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-12 h-12 object-cover rounded"
-                      />
+                      {item.image_url ? (
+                        <img
+                          src={item.image_url}
+                          alt={item.name}
+                          className="w-12 h-12 object-cover rounded"
+                          onError={(e) => {
+                            e.currentTarget.src = '/placeholder.svg';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
+                          <span className="text-xs text-muted-foreground">No img</span>
+                        </div>
+                      )}
                       <div>
                         <p className="font-medium text-sm">{item.name}</p>
                         <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>

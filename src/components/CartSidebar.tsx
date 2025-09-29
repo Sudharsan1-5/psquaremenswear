@@ -38,11 +38,20 @@ export function CartSidebar() {
         <div className="space-y-4">
           {items.map((item) => (
             <div key={item.id} className="flex space-x-3">
-              <img
-                src={item.image}
-                alt={item.name}
-                className="w-16 h-16 object-cover rounded-md"
-              />
+              {item.image_url ? (
+                <img
+                  src={item.image_url}
+                  alt={item.name}
+                  className="w-16 h-16 object-cover rounded-md"
+                  onError={(e) => {
+                    e.currentTarget.src = '/placeholder.svg';
+                  }}
+                />
+              ) : (
+                <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
+                  <span className="text-xs text-muted-foreground">No img</span>
+                </div>
+              )}
               <div className="flex-1 space-y-2">
                 <h4 className="font-medium text-sm line-clamp-2">{item.name}</h4>
                 <p className="text-sm font-semibold text-primary">
