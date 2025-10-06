@@ -4,6 +4,8 @@ import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { useSearchParams } from 'react-router-dom';
+import AIChatbot from '@/components/AIChatbot';
 
 const categories = ['All', 'T-Shirts', 'Shirts', 'Jeans', 'Formal Wear', 'Casual Wear'];
 
@@ -11,6 +13,7 @@ export default function Products() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     fetchProducts();
@@ -32,13 +35,21 @@ export default function Products() {
     }
   };
 
-  const filteredProducts = selectedCategory === 'All' 
-    ? products 
-    : products.filter(product => product.category === selectedCategory);
+  const searchQuery = searchParams.get('search') || '';
+  
+  const filteredProducts = products.filter(product => {
+    const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+    const matchesSearch = !searchQuery || 
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.category?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
+      <AIChatbot />
       
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
@@ -67,6 +78,12 @@ export default function Products() {
           </div>
         </div>
 
+        {searchQuery && (
+          <div className="mb-4 text-sm text-muted-foreground">
+            Showing results for: <span className="font-semibold text-foreground">"{searchQuery}"</span>
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center py-12">
             <p className="text-lg text-muted-foreground">Loading products...</p>
@@ -82,7 +99,10 @@ export default function Products() {
             {filteredProducts.length === 0 && !loading && (
               <div className="text-center py-12">
                 <p className="text-lg text-muted-foreground">
-                  No products found in this category.
+                  {searchQuery 
+                    ? `No products found for "${searchQuery}"`
+                    : "No products found in this category."
+                  }
                 </p>
               </div>
             )}

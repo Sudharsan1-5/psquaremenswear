@@ -6,9 +6,13 @@ import { useCart } from '@/contexts/CartContext';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { CartSidebar } from './CartSidebar';
 import { AuthButton } from '@/components/AuthButton';
+import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
 export function Header() {
   const { itemCount } = useCart();
+  const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -23,6 +27,13 @@ export function Header() {
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  navigate(`/?search=${encodeURIComponent(searchQuery)}`);
+                }
+              }}
               placeholder="Search clothing..."
               className="pl-10 bg-muted/50 border-0 focus-visible:ring-1"
             />
