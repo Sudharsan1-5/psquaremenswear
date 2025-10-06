@@ -88,25 +88,43 @@ export default function Products() {
           <div className="text-center py-12">
             <p className="text-lg text-muted-foreground">Loading products...</p>
           </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-lg text-muted-foreground">
+              {searchQuery 
+                ? `No products found for "${searchQuery}"`
+                : "No products found in this category."
+              }
+            </p>
+          </div>
         ) : (
-          <>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6 animate-fade-in">
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-
-            {filteredProducts.length === 0 && !loading && (
-              <div className="text-center py-12">
-                <p className="text-lg text-muted-foreground">
-                  {searchQuery 
-                    ? `No products found for "${searchQuery}"`
-                    : "No products found in this category."
-                  }
-                </p>
+          <div className="space-y-8">
+            {selectedCategory === 'All' ? (
+              // Group by category when "All" is selected
+              categories.slice(1).map(category => {
+                const categoryProducts = filteredProducts.filter(p => p.category === category);
+                if (categoryProducts.length === 0) return null;
+                
+                return (
+                  <div key={category} className="animate-fade-in">
+                    <h2 className="text-2xl font-bold mb-4 text-foreground">{category}</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
+                      {categoryProducts.map((product) => (
+                        <ProductCard key={product.id} product={product} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              // Show flat grid when specific category is selected
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6 animate-fade-in">
+                {filteredProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
               </div>
             )}
-          </>
+          </div>
         )}
       </main>
     </div>

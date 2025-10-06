@@ -5,6 +5,18 @@ import { MessageCircle, X, Send, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 
+// Simple function to convert basic markdown to HTML
+const formatMessage = (text: string) => {
+  // Convert **text** to <strong>text</strong>
+  let formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Convert *text* to <em>text</em>
+  formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  // Convert ## headings to <strong> tags
+  formatted = formatted.replace(/^##\s+(.+)$/gm, '<strong>$1</strong>');
+  formatted = formatted.replace(/^#\s+(.+)$/gm, '<strong>$1</strong>');
+  return formatted;
+};
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -119,7 +131,10 @@ export default function AIChatbot() {
                       : 'bg-muted text-foreground'
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  <p 
+                    className="text-sm whitespace-pre-wrap" 
+                    dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }}
+                  />
                 </div>
               </div>
             ))}
