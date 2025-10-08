@@ -7,13 +7,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSearchParams } from 'react-router-dom';
 import AIChatbot from '@/components/AIChatbot';
 
-const categories = ['All', 'T-Shirts', 'Shirts', 'Jeans', 'Formal Wear', 'Casual Wear'];
+
 
 export default function Products() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchParams] = useSearchParams();
+  const [categories, setCategories] = useState<string[]>(['All']);
 
   useEffect(() => {
     fetchProducts();
@@ -28,6 +29,10 @@ export default function Products() {
 
       if (error) throw error;
       setProducts(data || []);
+      
+      // Extract unique categories from products
+      const uniqueCategories = Array.from(new Set(data?.map(p => p.category).filter(Boolean) || []));
+      setCategories(['All', ...uniqueCategories]);
     } catch (error) {
       console.error('Error fetching products:', error);
     } finally {

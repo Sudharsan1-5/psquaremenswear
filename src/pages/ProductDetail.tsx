@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Star, ShoppingCart, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Header } from '@/components/Header';
 import { Product, useCart } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { ProductCard } from '@/components/ProductCard';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -15,6 +16,7 @@ export default function ProductDetail() {
   const { toast } = useToast();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     fetchProduct();
@@ -30,6 +32,18 @@ export default function ProductDetail() {
 
       if (error) throw error;
       setProduct(data);
+      
+      // Fetch related products from the same category
+      if (data?.category) {
+        const { data: related } = await supabase
+          .from('products')
+          .select('*')
+          .eq('category', data.category)
+          .neq('id', id)
+          .limit(4);
+        
+        setRelatedProducts(related || []);
+      }
     } catch (error) {
       console.error('Error fetching product:', error);
       toast({
@@ -49,7 +63,13 @@ export default function ProductDetail() {
         title: "Added to cart",
         description: `${product.name} has been added to your cart.`,
       });
-      navigate('/');
+    }
+  };
+
+  const handleBuyNow = () => {
+    if (product) {
+      addToCart(product);
+      navigate('/checkout');
     }
   };
 
@@ -157,17 +177,41 @@ export default function ProductDetail() {
               </p>
             </div>
 
-            <Button
-              onClick={handleAddToCart}
-              disabled={product.stock === 0}
-              size="lg"
-              className="w-full bg-gradient-primary hover:shadow-glow transition-all duration-300 text-lg py-6"
-            >
-              <ShoppingCart className="mr-2 h-5 w-5" />
-              I Want This
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                onClick={handleAddToCart}
+                disabled={product.stock === 0}
+                size="lg"
+                variant="outline"
+                className="flex-1 text-lg py-6"
+              >
+                <ShoppingCart className="mr-2 h-5 w-5" />
+                Add to Cart
+              </Button>
+              
+              <Button
+                onClick={handleBuyNow}
+                disabled={product.stock === 0}
+                size="lg"
+                className="flex-1 bg-gradient-primary hover:shadow-glow transition-all duration-300 text-lg py-6"
+              >
+                <Zap className="mr-2 h-5 w-5" />
+                I Want This
+              </Button>
+            </div>
           </div>
         </div>
+
+        {relatedProducts.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-2xl font-bold mb-6">Similar Products</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
+              {relatedProducts.map((relatedProduct) => (
+                <ProductCard key={relatedProduct.id} product={relatedProduct} />
+              ))}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
