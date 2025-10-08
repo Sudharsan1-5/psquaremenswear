@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Users, ShoppingBag, DollarSign, Activity, ArrowLeft, Search, Plus, Trash2, Package } from 'lucide-react';
+import { Users, ShoppingBag, DollarSign, Activity, ArrowLeft, Search, Plus, Trash2, Package, Edit } from 'lucide-react';
 
 interface User {
   id: string;
@@ -59,6 +59,8 @@ export default function AdminPanel() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [isEditProductOpen, setIsEditProductOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [newProduct, setNewProduct] = useState({
     name: '',
     price: '',
@@ -67,6 +69,14 @@ export default function AdminPanel() {
     stock: '',
     image_file: null as File | null
   });
+  const [customCategory, setCustomCategory] = useState('');
+  const [availableCategories, setAvailableCategories] = useState<string[]>([
+    'T-Shirts',
+    'Shirts', 
+    'Jeans',
+    'Formal Wear',
+    'Casual Wear'
+  ]);
 
   useEffect(() => {
     if (!user || !isAdmin) {
@@ -244,6 +254,70 @@ export default function AdminPanel() {
     }
   };
 
+  const updateProduct = async () => {
+    if (!editingProduct) return;
+    
+    try {
+      let imageUrl = editingProduct.image_url;
+      
+      // Upload new image if provided
+      if (newProduct.image_file) {
+        const fileExt = newProduct.image_file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('product-images')
+          .upload(fileName, newProduct.image_file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(fileName);
+        
+        imageUrl = publicUrl;
+      }
+
+      const { error } = await supabase
+        .from('products')
+        .update({
+          name: newProduct.name,
+          price: parseFloat(newProduct.price),
+          category: newProduct.category,
+          description: newProduct.description,
+          stock: parseInt(newProduct.stock),
+          image_url: imageUrl
+        })
+        .eq('id', editingProduct.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Product updated successfully",
+      });
+
+      setNewProduct({
+        name: '',
+        price: '',
+        category: '',
+        description: '',
+        stock: '',
+        image_file: null
+      });
+      setIsEditProductOpen(false);
+      setEditingProduct(null);
+      await fetchData();
+    } catch (error) {
+      console.error('Error updating product:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update product",
+        variant: "destructive",
+      });
+    }
+  };
+
   const deleteProduct = async (productId: string) => {
     try {
       const { error } = await supabase
@@ -266,6 +340,27 @@ export default function AdminPanel() {
         description: "Failed to delete product",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setNewProduct({
+      name: product.name,
+      price: product.price.toString(),
+      category: product.category,
+      description: product.description || '',
+      stock: product.stock.toString(),
+      image_file: null
+    });
+    setIsEditProductOpen(true);
+  };
+
+  const addCustomCategory = () => {
+    if (customCategory && !availableCategories.includes(customCategory)) {
+      setAvailableCategories([...availableCategories, customCategory]);
+      setNewProduct({...newProduct, category: customCategory});
+      setCustomCategory('');
     }
   };
 
@@ -579,7 +674,7 @@ export default function AdminPanel() {
                         Add Product
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
+                    <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>Add New Product</DialogTitle>
                         <DialogDescription>
@@ -609,12 +704,41 @@ export default function AdminPanel() {
                         </div>
                         <div className="grid gap-2">
                           <Label htmlFor="category">Category</Label>
-                          <Input
-                            id="category"
-                            value={newProduct.category}
-                            onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
-                            placeholder="Product category"
-                          />
+                          <div className="space-y-3">
+                            <div className="flex flex-wrap gap-2">
+                              {availableCategories.map((cat) => (
+                                <Badge
+                                  key={cat}
+                                  variant={newProduct.category === cat ? "default" : "outline"}
+                                  className="cursor-pointer hover:bg-primary/20"
+                                  onClick={() => setNewProduct({...newProduct, category: cat})}
+                                >
+                                  {cat}
+                                </Badge>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="Add custom category"
+                                value={customCategory}
+                                onChange={(e) => setCustomCategory(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && addCustomCategory()}
+                              />
+                              <Button 
+                                type="button"
+                                variant="outline" 
+                                size="sm"
+                                onClick={addCustomCategory}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            {newProduct.category && (
+                              <p className="text-sm text-muted-foreground">
+                                Selected: <span className="font-medium">{newProduct.category}</span>
+                              </p>
+                            )}
+                          </div>
                         </div>
                         <div className="grid gap-2">
                           <Label htmlFor="stock">Stock</Label>
@@ -650,6 +774,120 @@ export default function AdminPanel() {
                           Cancel
                         </Button>
                         <Button onClick={addProduct}>Add Product</Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Edit Product Dialog */}
+                  <Dialog open={isEditProductOpen} onOpenChange={setIsEditProductOpen}>
+                    <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Edit Product</DialogTitle>
+                        <DialogDescription>
+                          Update product details.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="edit-name">Name</Label>
+                          <Input
+                            id="edit-name"
+                            value={newProduct.name}
+                            onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                            placeholder="Product name"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="edit-price">Price</Label>
+                          <Input
+                            id="edit-price"
+                            type="number"
+                            step="0.01"
+                            value={newProduct.price}
+                            onChange={(e) => setNewProduct({...newProduct, price: e.target.value})}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="edit-category">Category</Label>
+                          <div className="space-y-3">
+                            <div className="flex flex-wrap gap-2">
+                              {availableCategories.map((cat) => (
+                                <Badge
+                                  key={cat}
+                                  variant={newProduct.category === cat ? "default" : "outline"}
+                                  className="cursor-pointer hover:bg-primary/20"
+                                  onClick={() => setNewProduct({...newProduct, category: cat})}
+                                >
+                                  {cat}
+                                </Badge>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="Add custom category"
+                                value={customCategory}
+                                onChange={(e) => setCustomCategory(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && addCustomCategory()}
+                              />
+                              <Button 
+                                type="button"
+                                variant="outline" 
+                                size="sm"
+                                onClick={addCustomCategory}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            {newProduct.category && (
+                              <p className="text-sm text-muted-foreground">
+                                Selected: <span className="font-medium">{newProduct.category}</span>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="edit-stock">Stock</Label>
+                          <Input
+                            id="edit-stock"
+                            type="number"
+                            value={newProduct.stock}
+                            onChange={(e) => setNewProduct({...newProduct, stock: e.target.value})}
+                            placeholder="Stock quantity"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="edit-image_file">Product Image</Label>
+                          {editingProduct?.image_url && (
+                            <img 
+                              src={editingProduct.image_url} 
+                              alt="Current product" 
+                              className="w-20 h-20 object-cover rounded-md mb-2"
+                            />
+                          )}
+                          <Input
+                            id="edit-image_file"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setNewProduct({...newProduct, image_file: e.target.files?.[0] || null})}
+                          />
+                          <p className="text-xs text-muted-foreground">Leave empty to keep current image</p>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="edit-description">Description</Label>
+                          <Textarea
+                            id="edit-description"
+                            value={newProduct.description}
+                            onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
+                            placeholder="Product description"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setIsEditProductOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={updateProduct}>Update Product</Button>
                       </div>
                     </DialogContent>
                   </Dialog>
@@ -709,6 +947,13 @@ export default function AdminPanel() {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditProduct(product)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
                               <Button
                                 variant="destructive"
                                 size="sm"
