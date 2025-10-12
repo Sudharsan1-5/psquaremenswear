@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      coupons: {
+        Row: {
+          code: string
+          created_at: string
+          current_uses: number
+          discount_percentage: number
+          id: string
+          max_uses: number
+          updated_at: string
+          valid_until: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          current_uses?: number
+          discount_percentage: number
+          id?: string
+          max_uses?: number
+          updated_at?: string
+          valid_until: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          current_uses?: number
+          discount_percentage?: number
+          id?: string
+          max_uses?: number
+          updated_at?: string
+          valid_until?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           amount_paise: number
@@ -105,6 +138,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          rols: string | null
           updated_at: string
         }
         Insert: {
@@ -113,6 +147,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          rols?: string | null
           updated_at?: string
         }
         Update: {
@@ -121,6 +156,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          rols?: string | null
           updated_at?: string
         }
         Relationships: []
