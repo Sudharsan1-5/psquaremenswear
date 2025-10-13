@@ -28,6 +28,15 @@ interface OrderDetails {
   pincode: string;
 }
 
+interface Coupon {
+  id: string;
+  code: string;
+  discount_percentage: number;
+  valid_until: string;
+  max_uses: number;
+  current_uses: number;
+}
+
 export default function Checkout() {
   const { items, total, clearCart } = useCart();
   const navigate = useNavigate();
@@ -36,6 +45,9 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false);
   const [isInIframe, setIsInIframe] = useState(false);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
   const [orderDetails, setOrderDetails] = useState<OrderDetails>({
     fullName: '',
     email: '',
@@ -45,6 +57,11 @@ export default function Checkout() {
     pincode: '',
   });
   const { user } = useAuth();
+
+  const discount = appliedCoupon ? (total * appliedCoupon.discount_percentage) / 100 : 0;
+  const subtotalAfterDiscount = total - discount;
+  const tax = subtotalAfterDiscount * 0.18;
+  const finalTotal = subtotalAfterDiscount + tax;
 
   useEffect(() => {
     // Check if running in iframe
@@ -83,6 +100,82 @@ export default function Checkout() {
       console.error('Failed to load Razorpay script');
     };
     document.body.appendChild(script);
+  };
+
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) {
+      toast({
+        title: "Invalid Coupon",
+        description: "Please enter a coupon code.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCouponLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('code', couponCode.toUpperCase())
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!data) {
+        toast({
+          title: "Invalid Coupon",
+          description: "This coupon code does not exist.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const now = new Date();
+      const validUntil = new Date(data.valid_until);
+
+      if (validUntil < now) {
+        toast({
+          title: "Expired Coupon",
+          description: "This coupon has expired.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.current_uses >= data.max_uses) {
+        toast({
+          title: "Coupon Limit Reached",
+          description: "This coupon has been fully redeemed.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setAppliedCoupon(data);
+      toast({
+        title: "Coupon Applied!",
+        description: `${data.discount_percentage}% discount applied to your order.`,
+      });
+    } catch (error) {
+      console.error('Error applying coupon:', error);
+      toast({
+        title: "Error",
+        description: "Failed to apply coupon. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    toast({
+      title: "Coupon Removed",
+      description: "Coupon discount has been removed.",
+    });
   };
 
   const handleInputChange = (field: keyof OrderDetails, value: string) => {
@@ -406,23 +499,69 @@ export default function Checkout() {
                 
                 <Separator />
                 
+                {/* Coupon Code Section */}
+                <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                  <Label htmlFor="coupon">Have a Coupon Code?</Label>
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between p-3 bg-success/10 border border-success/20 rounded-lg">
+                      <div>
+                        <p className="font-semibold text-success">{appliedCoupon.code}</p>
+                        <p className="text-sm text-muted-foreground">{appliedCoupon.discount_percentage}% discount applied</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={removeCoupon}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Input
+                        id="coupon"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        placeholder="Enter coupon code"
+                        className="flex-1"
+                      />
+                      <Button
+                        onClick={applyCoupon}
+                        disabled={couponLoading}
+                        variant="secondary"
+                      >
+                        {couponLoading ? "Applying..." : "Apply"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+                
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
                     <span>₹{total.toFixed(2)}</span>
                   </div>
+                  {appliedCoupon && (
+                    <div className="flex justify-between text-success">
+                      <span>Coupon Discount ({appliedCoupon.discount_percentage}%)</span>
+                      <span>-₹{discount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span>Shipping</span>
                     <span className="text-success">Free</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Tax</span>
-                    <span>₹{(total * 0.18).toFixed(2)}</span>
+                    <span>Tax (18%)</span>
+                    <span>₹{tax.toFixed(2)}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
-                    <span className="text-primary">₹{(total * 1.18).toFixed(2)}</span>
+                    <span className="text-primary">₹{finalTotal.toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -434,7 +573,7 @@ export default function Checkout() {
                     size="lg"
                   >
                     <ExternalLink className="mr-2 h-4 w-4" />
-                    Pay in New Tab ₹{(total * 1.18).toFixed(2)}
+                    Pay in New Tab ₹{finalTotal.toFixed(2)}
                   </Button>
                 ) : (
                   <Button
@@ -444,7 +583,7 @@ export default function Checkout() {
                     size="lg"
                   >
                     <CreditCard className="mr-2 h-4 w-4" />
-                    {loading ? "Processing..." : `Pay ₹${(total * 1.18).toFixed(2)}`}
+                    {loading ? "Processing..." : `Pay ₹${finalTotal.toFixed(2)}`}
                   </Button>
                 )}
 

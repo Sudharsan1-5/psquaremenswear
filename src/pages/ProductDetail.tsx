@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, ShoppingCart, Zap } from 'lucide-react';
+import { ArrowLeft, Star, ShoppingCart, Zap, Share2, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Header } from '@/components/Header';
@@ -17,6 +17,8 @@ export default function ProductDetail() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [showShareOptions, setShowShareOptions] = useState(false);
 
   useEffect(() => {
     fetchProduct();
@@ -73,6 +75,66 @@ export default function ProductDetail() {
     }
   };
 
+  const handleShare = async () => {
+    const productUrl = window.location.href;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: product?.name,
+          text: `Check out ${product?.name} on TechStore!`,
+          url: productUrl,
+        });
+        toast({
+          title: "Shared Successfully",
+          description: "Thanks for sharing!",
+        });
+      } catch (error) {
+        // User cancelled share
+      }
+    } else {
+      // Fallback: copy to clipboard
+      navigator.clipboard.writeText(productUrl);
+      toast({
+        title: "Link Copied!",
+        description: "Product link copied to clipboard.",
+      });
+    }
+    setShowShareOptions(false);
+  };
+
+  const toggleWishlist = () => {
+    if (!product) return;
+    
+    const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+    const index = wishlist.findIndex((item: string) => item === product.id);
+    
+    if (index > -1) {
+      wishlist.splice(index, 1);
+      setIsWishlisted(false);
+      toast({
+        title: "Removed from Wishlist",
+        description: `${product.name} removed from wishlist.`,
+      });
+    } else {
+      wishlist.push(product.id);
+      setIsWishlisted(true);
+      toast({
+        title: "Added to Wishlist",
+        description: `${product.name} added to wishlist.`,
+      });
+    }
+    
+    localStorage.setItem('wishlist', JSON.stringify(wishlist));
+  };
+
+  useEffect(() => {
+    if (product) {
+      const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+      setIsWishlisted(wishlist.includes(product.id));
+    }
+  }, [product]);
+
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
       <Star
@@ -123,16 +185,43 @@ export default function ProductDetail() {
         </Button>
 
         <div className="grid md:grid-cols-2 gap-8">
-          <div className="relative">
+          <div className="relative group">
             {product.image_url ? (
-              <img
-                src={product.image_url}
-                alt={product.name}
-                className="w-full rounded-lg object-cover"
-                onError={(e) => {
-                  e.currentTarget.src = '/placeholder.svg';
-                }}
-              />
+              <>
+                <img
+                  src={product.image_url}
+                  alt={product.name}
+                  className="w-full rounded-lg object-cover"
+                  onError={(e) => {
+                    e.currentTarget.src = '/placeholder.svg';
+                  }}
+                />
+                {/* Hover Overlay with Share & Wishlist */}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-4 rounded-lg">
+                  <Button
+                    size="lg"
+                    variant="secondary"
+                    className="bg-white/90 hover:bg-white text-foreground shadow-lg"
+                    onClick={handleShare}
+                  >
+                    <Share2 className="h-5 w-5 mr-2" />
+                    Share
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="secondary"
+                    className={`shadow-lg ${
+                      isWishlisted 
+                        ? 'bg-destructive/90 hover:bg-destructive text-white' 
+                        : 'bg-white/90 hover:bg-white text-foreground'
+                    }`}
+                    onClick={toggleWishlist}
+                  >
+                    <Heart className={`h-5 w-5 mr-2 ${isWishlisted ? 'fill-current' : ''}`} />
+                    {isWishlisted ? 'Wishlisted' : 'Wishlist'}
+                  </Button>
+                </div>
+              </>
             ) : (
               <div className="w-full aspect-square bg-muted rounded-lg flex items-center justify-center">
                 <span className="text-muted-foreground">No image</span>
