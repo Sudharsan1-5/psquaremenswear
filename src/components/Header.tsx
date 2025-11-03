@@ -1,8 +1,8 @@
-import { ShoppingCart, Search, Menu, X } from 'lucide-react';
+import { ShoppingCart, Search, Menu, X, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useCart } from '@/contexts/CartContext';
+import { useCart, useWishlist } from '@/contexts/CartContext';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { CartSidebar } from './CartSidebar';
 import { AuthButton } from '@/components/AuthButton';
@@ -11,6 +11,7 @@ import { useState } from 'react';
 
 export function Header() {
   const { itemCount } = useCart();
+  const { wishlistCount } = useWishlist();
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -63,6 +64,24 @@ export function Header() {
             onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
           >
             <Search className="h-5 w-5" />
+          </Button>
+
+          {/* Wishlist Button */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="relative h-10 w-10 sm:h-9 sm:w-9"
+            onClick={() => navigate('/wishlist')}
+          >
+            <Heart className="h-5 w-5 sm:h-4 sm:w-4" />
+            {wishlistCount > 0 && (
+              <Badge
+                variant="destructive"
+                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+              >
+                {wishlistCount}
+              </Badge>
+            )}
           </Button>
 
           {/* Cart Button - Larger on mobile */}

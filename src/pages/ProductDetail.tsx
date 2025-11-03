@@ -4,7 +4,7 @@ import { ArrowLeft, Star, ShoppingCart, Zap, Share2, Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Header } from '@/components/Header';
-import { Product, useCart } from '@/contexts/CartContext';
+import { Product, useCart, useWishlist } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ProductCard } from '@/components/ProductCard';
@@ -13,12 +13,11 @@ export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const { toast } = useToast();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
-  const [isWishlisted, setIsWishlisted] = useState(false);
-  const [showShareOptions, setShowShareOptions] = useState(false);
 
   useEffect(() => {
     fetchProduct();
@@ -100,40 +99,20 @@ export default function ProductDetail() {
         description: "Product link copied to clipboard.",
       });
     }
-    setShowShareOptions(false);
   };
 
-  const toggleWishlist = () => {
-    if (!product) return;
-    
-    const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-    const index = wishlist.findIndex((item: string) => item === product.id);
-    
-    if (index > -1) {
-      wishlist.splice(index, 1);
-      setIsWishlisted(false);
-      toast({
-        title: "Removed from Wishlist",
-        description: `${product.name} removed from wishlist.`,
-      });
-    } else {
-      wishlist.push(product.id);
-      setIsWishlisted(true);
-      toast({
-        title: "Added to Wishlist",
-        description: `${product.name} added to wishlist.`,
-      });
-    }
-    
-    localStorage.setItem('wishlist', JSON.stringify(wishlist));
-  };
-
-  useEffect(() => {
+  const handleToggleWishlist = () => {
     if (product) {
-      const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-      setIsWishlisted(wishlist.includes(product.id));
+      const wasInWishlist = isInWishlist(product.id);
+      toggleWishlist(product);
+      toast({
+        title: wasInWishlist ? "Removed from Wishlist" : "Added to Wishlist",
+        description: wasInWishlist 
+          ? `${product.name} removed from your wishlist.`
+          : `${product.name} added to your wishlist.`,
+      });
     }
-  }, [product]);
+  };
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
@@ -213,16 +192,16 @@ export default function ProductDetail() {
                     size="icon"
                     variant="secondary"
                     className={`shadow-lg h-10 w-10 ${
-                      isWishlisted 
+                      product && isInWishlist(product.id) 
                         ? 'bg-destructive/90 hover:bg-destructive text-white' 
                         : 'bg-white/90 hover:bg-white text-foreground'
                     }`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleWishlist();
+                      handleToggleWishlist();
                     }}
                   >
-                    <Heart className={`h-5 w-5 ${isWishlisted ? 'fill-current' : ''}`} />
+                    <Heart className={`h-5 w-5 ${product && isInWishlist(product.id) ? 'fill-current' : ''}`} />
                   </Button>
                 </div>
               </>

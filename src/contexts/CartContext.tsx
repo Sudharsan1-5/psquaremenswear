@@ -140,3 +140,79 @@ export function useCart() {
   }
   return context;
 }
+
+// Wishlist Context
+interface WishlistContextType {
+  wishlistItems: Product[];
+  addToWishlist: (product: Product) => void;
+  removeFromWishlist: (productId: string) => void;
+  isInWishlist: (productId: string) => boolean;
+  toggleWishlist: (product: Product) => void;
+  wishlistCount: number;
+}
+
+const WishlistContext = createContext<WishlistContextType | undefined>(undefined);
+
+export function WishlistProvider({ children }: { children: ReactNode }) {
+  const [wishlistItems, setWishlistItems] = useState<Product[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('psquare_wishlist');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('psquare_wishlist', JSON.stringify(wishlistItems));
+    }
+  }, [wishlistItems]);
+
+  const addToWishlist = (product: Product) => {
+    setWishlistItems(prev => {
+      if (prev.find(item => item.id === product.id)) {
+        return prev;
+      }
+      return [...prev, product];
+    });
+  };
+
+  const removeFromWishlist = (productId: string) => {
+    setWishlistItems(prev => prev.filter(item => item.id !== productId));
+  };
+
+  const isInWishlist = (productId: string) => {
+    return wishlistItems.some(item => item.id === productId);
+  };
+
+  const toggleWishlist = (product: Product) => {
+    if (isInWishlist(product.id)) {
+      removeFromWishlist(product.id);
+    } else {
+      addToWishlist(product);
+    }
+  };
+
+  const wishlistCount = wishlistItems.length;
+
+  return (
+    <WishlistContext.Provider value={{
+      wishlistItems,
+      addToWishlist,
+      removeFromWishlist,
+      isInWishlist,
+      toggleWishlist,
+      wishlistCount
+    }}>
+      {children}
+    </WishlistContext.Provider>
+  );
+}
+
+export function useWishlist() {
+  const context = useContext(WishlistContext);
+  if (context === undefined) {
+    throw new Error('useWishlist must be used within a WishlistProvider');
+  }
+  return context;
+}

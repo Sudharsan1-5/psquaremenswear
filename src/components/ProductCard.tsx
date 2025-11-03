@@ -1,8 +1,10 @@
-import { Star } from 'lucide-react';
+import { Star, Heart } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Product } from '@/contexts/CartContext';
+import { Button } from '@/components/ui/button';
+import { Product, useWishlist } from '@/contexts/CartContext';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProductCardProps {
   product: Product;
@@ -10,6 +12,20 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const navigate = useNavigate();
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const { toast } = useToast();
+  const inWishlist = isInWishlist(product.id);
+
+  const handleWishlistClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleWishlist(product);
+    toast({
+      title: inWishlist ? "Removed from Wishlist" : "Added to Wishlist",
+      description: inWishlist 
+        ? `${product.name} removed from your wishlist.`
+        : `${product.name} added to your wishlist.`,
+    });
+  };
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
@@ -55,6 +71,19 @@ export function ProductCard({ product }: ProductCardProps) {
             <Badge variant="destructive" className="text-xs sm:text-sm">Out of Stock</Badge>
           </div>
         )}
+        {/* Wishlist Button */}
+        <Button
+          variant="secondary"
+          size="icon"
+          className={`absolute top-2 left-2 h-8 w-8 sm:h-9 sm:w-9 shadow-lg transition-all ${
+            inWishlist 
+              ? 'bg-destructive hover:bg-destructive/90 text-white' 
+              : 'bg-white/90 hover:bg-white text-foreground'
+          }`}
+          onClick={handleWishlistClick}
+        >
+          <Heart className={`h-4 w-4 ${inWishlist ? 'fill-current' : ''}`} />
+        </Button>
       </div>
 
       <CardContent className="p-2 sm:p-3">
