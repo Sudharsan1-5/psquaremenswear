@@ -56,46 +56,49 @@ export default function Products() {
       <Header />
       <AIChatbot />
       
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-4 bg-gradient-primary bg-clip-text text-transparent">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 lg:py-8">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3 bg-gradient-primary bg-clip-text text-transparent px-1">
             P SQUARE MEN'S WEAR
           </h1>
-          <p className="text-lg text-muted-foreground mb-6">
+          <p className="text-sm sm:text-base lg:text-lg text-muted-foreground mb-4 sm:mb-6 px-1">
             Premium collection of men's clothing with unmatched style and quality
           </p>
           
-          <div className="flex flex-wrap gap-2">
-            {categories.map((category) => (
-              <Badge
-                key={category}
-                variant={selectedCategory === category ? "default" : "secondary"}
-                className={`cursor-pointer transition-all duration-200 ${
-                  selectedCategory === category 
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
-                    : 'hover:bg-secondary/80'
-                }`}
-                onClick={() => setSelectedCategory(category)}
-              >
-                {category}
-              </Badge>
-            ))}
+          {/* Horizontal scrollable category badges on mobile */}
+          <div className="-mx-2 px-2 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-2 pb-2 min-w-max">
+              {categories.map((category) => (
+                <Badge
+                  key={category}
+                  variant={selectedCategory === category ? "default" : "secondary"}
+                  className={`cursor-pointer transition-all duration-200 whitespace-nowrap px-4 py-2 text-sm sm:text-base h-9 sm:h-10 ${
+                    selectedCategory === category 
+                      ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
+                      : 'hover:bg-secondary/80'
+                  }`}
+                  onClick={() => setSelectedCategory(category)}
+                >
+                  {category}
+                </Badge>
+              ))}
+            </div>
           </div>
         </div>
 
         {searchQuery && (
-          <div className="mb-4 text-sm text-muted-foreground">
+          <div className="mb-3 sm:mb-4 text-xs sm:text-sm text-muted-foreground px-1">
             Showing results for: <span className="font-semibold text-foreground">"{searchQuery}"</span>
           </div>
         )}
 
         {loading ? (
-          <div className="text-center py-12">
-            <p className="text-lg text-muted-foreground">Loading products...</p>
+          <div className="text-center py-12 sm:py-16">
+            <p className="text-base sm:text-lg text-muted-foreground">Loading products...</p>
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-lg text-muted-foreground">
+          <div className="text-center py-12 sm:py-16 px-4">
+            <p className="text-base sm:text-lg text-muted-foreground">
               {searchQuery 
                 ? `No products found for "${searchQuery}"`
                 : "No products found in this category."
@@ -103,7 +106,7 @@ export default function Products() {
             </p>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             {selectedCategory === 'All' ? (
               // Group by category when "All" is selected
               categories.slice(1).map(category => {
@@ -112,8 +115,8 @@ export default function Products() {
                 
                 return (
                   <div key={category} className="animate-fade-in">
-                    <h2 className="text-2xl font-bold mb-4 text-foreground">{category}</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
+                    <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-foreground px-1">{category}</h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 lg:gap-6">
                       {categoryProducts.map((product) => (
                         <ProductCard key={product.id} product={product} />
                       ))}
@@ -123,7 +126,7 @@ export default function Products() {
               })
             ) : (
               // Show flat grid when specific category is selected
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6 animate-fade-in">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 lg:gap-6 animate-fade-in">
                 {filteredProducts.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}

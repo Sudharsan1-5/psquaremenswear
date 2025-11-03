@@ -91,48 +91,48 @@ export default function AIChatbot() {
       {!isOpen && (
         <Button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 z-50"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 h-14 w-14 sm:h-16 sm:w-16 rounded-full shadow-lg bg-primary hover:bg-primary/90 z-50 touch-manipulation"
           size="icon"
         >
-          <MessageCircle className="h-6 w-6" />
+          <MessageCircle className="h-6 w-6 sm:h-7 sm:w-7" />
         </Button>
       )}
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-[90vw] md:w-96 h-[600px] bg-card border border-border rounded-lg shadow-2xl flex flex-col z-50">
+        <div className="fixed bottom-0 right-0 left-0 sm:bottom-4 sm:right-4 sm:left-auto w-full sm:w-[min(90vw,400px)] h-[85vh] sm:h-[600px] sm:max-h-[85vh] bg-card border-t sm:border border-border sm:rounded-lg shadow-2xl flex flex-col z-50">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border bg-gradient-primary">
+          <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border bg-gradient-primary">
             <div className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5 text-primary-foreground" />
-              <h3 className="font-semibold text-primary-foreground">P Square AI Assistant</h3>
+              <h3 className="text-sm sm:text-base font-semibold text-primary-foreground">P Square AI Assistant</h3>
             </div>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setIsOpen(false)}
-              className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+              className="h-9 w-9 sm:h-8 sm:w-8 text-primary-foreground hover:bg-primary-foreground/20 touch-manipulation"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5 sm:h-4 sm:w-4" />
             </Button>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
             {messages.map((msg, idx) => (
               <div
                 key={idx}
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${
+                  className={`max-w-[85%] sm:max-w-[80%] rounded-lg p-2.5 sm:p-3 ${
                     msg.role === 'user'
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted text-foreground'
                   }`}
                 >
                   <p 
-                    className="text-sm whitespace-pre-wrap" 
+                    className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed" 
                     dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }}
                   />
                 </div>
@@ -150,26 +150,26 @@ export default function AIChatbot() {
           </div>
 
           {/* Input */}
-          <div className="p-4 border-t border-border">
+          <div className="p-3 sm:p-4 border-t border-border bg-background">
             <div className="flex gap-2">
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="e.g., black t-shirt under ₹500"
-                className="flex-1"
+                className="flex-1 h-11 text-base"
                 disabled={isLoading}
               />
               <Button
                 onClick={sendMessage}
                 disabled={!input.trim() || isLoading}
                 size="icon"
-                className="bg-primary hover:bg-primary/90"
+                className="bg-primary hover:bg-primary/90 h-11 w-11 touch-manipulation"
               >
-                <Send className="h-4 w-4" />
+                <Send className="h-5 w-5" />
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground mt-2 text-center">
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-2 text-center leading-tight">
               Try: "Show me formal shirts" or "₹500 black t-shirt M size"
             </p>
           </div>

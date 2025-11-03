@@ -171,21 +171,21 @@ export default function ProductDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Header />
       
-      <main className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-2 sm:px-4 py-3 sm:py-6">
         <Button
           variant="ghost"
           onClick={() => navigate('/')}
-          className="mb-4"
+          className="mb-3 sm:mb-4 h-10"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Products
         </Button>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          <div className="relative group">
+        <div className="grid md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
+          <div className="relative">
             {product.image_url ? (
               <>
                 <img
@@ -196,29 +196,33 @@ export default function ProductDetail() {
                     e.currentTarget.src = '/placeholder.svg';
                   }}
                 />
-                {/* Hover Overlay with Share & Wishlist */}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-4 rounded-lg">
+                {/* Mobile-friendly Share & Wishlist buttons - always visible */}
+                <div className="absolute top-2 right-2 flex gap-2">
                   <Button
-                    size="lg"
+                    size="icon"
                     variant="secondary"
-                    className="bg-white/90 hover:bg-white text-foreground shadow-lg"
-                    onClick={handleShare}
+                    className="bg-white/90 hover:bg-white text-foreground shadow-lg h-10 w-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleShare();
+                    }}
                   >
-                    <Share2 className="h-5 w-5 mr-2" />
-                    Share
+                    <Share2 className="h-5 w-5" />
                   </Button>
                   <Button
-                    size="lg"
+                    size="icon"
                     variant="secondary"
-                    className={`shadow-lg ${
+                    className={`shadow-lg h-10 w-10 ${
                       isWishlisted 
                         ? 'bg-destructive/90 hover:bg-destructive text-white' 
                         : 'bg-white/90 hover:bg-white text-foreground'
                     }`}
-                    onClick={toggleWishlist}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleWishlist();
+                    }}
                   >
-                    <Heart className={`h-5 w-5 mr-2 ${isWishlisted ? 'fill-current' : ''}`} />
-                    {isWishlisted ? 'Wishlisted' : 'Wishlist'}
+                    <Heart className={`h-5 w-5 ${isWishlisted ? 'fill-current' : ''}`} />
                   </Button>
                 </div>
               </>
@@ -228,51 +232,52 @@ export default function ProductDetail() {
               </div>
             )}
             {product.stock < 10 && product.stock > 0 && (
-              <Badge variant="destructive" className="absolute top-4 right-4">
+              <Badge variant="destructive" className="absolute top-2 left-2">
                 Only {product.stock} left!
               </Badge>
             )}
           </div>
 
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4 sm:gap-6">
             <div>
-              <Badge className="mb-3 bg-accent text-accent-foreground">
+              <Badge className="mb-2 sm:mb-3 bg-accent text-accent-foreground text-xs sm:text-sm">
                 {product.category}
               </Badge>
-              <h1 className="text-3xl font-bold mb-3">{product.name}</h1>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex items-center gap-1">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2 sm:mb-3">{product.name}</h1>
+              <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                <div className="flex items-center gap-0.5">
                   {renderStars(product.rating)}
                 </div>
-                <span className="text-lg text-muted-foreground">
+                <span className="text-sm sm:text-base lg:text-lg text-muted-foreground">
                   ({product.rating})
                 </span>
               </div>
             </div>
 
             <div>
-              <p className="text-3xl font-bold text-primary mb-2">
+              <p className="text-2xl sm:text-3xl font-bold text-primary mb-1 sm:mb-2">
                 ₹{product.price.toFixed(2)}
               </p>
-              <p className="text-muted-foreground">
+              <p className="text-sm sm:text-base text-muted-foreground">
                 {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
               </p>
             </div>
 
             <div>
-              <h2 className="font-semibold text-lg mb-2">Description</h2>
-              <p className="text-muted-foreground leading-relaxed">
+              <h2 className="font-semibold text-base sm:text-lg mb-2">Description</h2>
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
                 {product.description}
               </p>
             </div>
 
-            <div className="flex gap-3">
+            {/* Desktop buttons */}
+            <div className="hidden md:flex gap-3">
               <Button
                 onClick={handleAddToCart}
                 disabled={product.stock === 0}
                 size="lg"
                 variant="outline"
-                className="flex-1 text-lg py-6"
+                className="flex-1 text-base lg:text-lg py-6"
               >
                 <ShoppingCart className="mr-2 h-5 w-5" />
                 Add to Cart
@@ -282,7 +287,7 @@ export default function ProductDetail() {
                 onClick={handleBuyNow}
                 disabled={product.stock === 0}
                 size="lg"
-                className="flex-1 bg-gradient-primary hover:shadow-glow transition-all duration-300 text-lg py-6"
+                className="flex-1 bg-gradient-primary hover:shadow-glow transition-all duration-300 text-base lg:text-lg py-6"
               >
                 <Zap className="mr-2 h-5 w-5" />
                 I Want This
@@ -292,9 +297,9 @@ export default function ProductDetail() {
         </div>
 
         {relatedProducts.length > 0 && (
-          <div className="mt-12">
-            <h2 className="text-2xl font-bold mb-6">Similar Products</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
+          <div className="mt-8 sm:mt-12">
+            <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 px-1">Similar Products</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 lg:gap-6">
               {relatedProducts.map((relatedProduct) => (
                 <ProductCard key={relatedProduct.id} product={relatedProduct} />
               ))}
@@ -302,6 +307,30 @@ export default function ProductDetail() {
           </div>
         )}
       </main>
+
+      {/* Sticky mobile action buttons */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t p-3 z-40 shadow-lg">
+        <div className="flex gap-2">
+          <Button
+            onClick={handleAddToCart}
+            disabled={product.stock === 0}
+            variant="outline"
+            className="flex-1 h-12 text-base font-semibold"
+          >
+            <ShoppingCart className="mr-2 h-5 w-5" />
+            Add to Cart
+          </Button>
+          
+          <Button
+            onClick={handleBuyNow}
+            disabled={product.stock === 0}
+            className="flex-1 h-12 bg-gradient-primary hover:shadow-glow transition-all duration-300 text-base font-semibold"
+          >
+            <Zap className="mr-2 h-5 w-5" />
+            Buy Now
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
