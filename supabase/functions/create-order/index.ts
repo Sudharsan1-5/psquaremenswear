@@ -14,15 +14,22 @@ serve(async (req) => {
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
-    const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID");
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+    
+    // ------------------------------------------------------------------
+    // FIX 1: Hardcode the public Key ID (safe to hardcode public info)
+    // REPLACE THIS: "rzp_test_RbWWBLSRtEtaMW" with YOUR actual public Key ID
+    // ------------------------------------------------------------------
+    const RAZORPAY_KEY_ID = "rzp_test_RbWWBLSRtEtaMW"; 
     const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET");
 
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       throw new Error("Supabase environment not configured");
     }
-    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-      throw new Error("Razorpay secrets not configured");
+    
+    // FIX 2: Only check for the SECRET key, preventing function crash
+    if (!RAZORPAY_KEY_SECRET) {
+      throw new Error("Razorpay secret key not configured");
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -83,6 +90,7 @@ serve(async (req) => {
     }
 
     // Create Razorpay order
+    // This line now correctly uses both the defined ID and the SECRET from Deno.env
     const authHeader = "Basic " + btoa(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`);
     const rzpRes = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
@@ -125,15 +133,26 @@ serve(async (req) => {
         razorpayOrderId: rzpData.id,
         amount: amount_paise,
         currency: "INR",
-        keyId: RAZORPAY_KEY_ID,
+        // FIX 3: Key ID is correctly returned to the frontend
+        keyId: RAZORPAY_KEY_ID, 
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (e) {
-    console.error("create-order function error", e);
-    return new Response(JSON.stringify({ error: String(e) }), {
+} catch (e) {
+  console.error("create-order function error", e);
+  const errorMessage = e instanceof Error ? e.message : String(e);
+  const errorStack = e instanceof Error ? e.stack : undefined;
+  
+  return new Response(
+    JSON.stringify({ 
+      error: errorMessage,
+      stack: errorStack,
+      timestamp: new Date().toISOString()
+    }), 
+    {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    }
+  );
   }
 });
