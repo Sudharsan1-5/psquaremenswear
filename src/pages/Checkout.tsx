@@ -201,7 +201,12 @@ export default function Checkout() {
     const orderData = {
       orderDetails,
       items,
-      total
+      total: finalTotal, // Use the discounted total
+      coupon: appliedCoupon ? {
+        id: appliedCoupon.id,
+        code: appliedCoupon.code,
+        discount_percentage: appliedCoupon.discount_percentage
+      } : null
     };
     
     localStorage.setItem('checkout_order_data', JSON.stringify(orderData));
@@ -241,7 +246,15 @@ export default function Checkout() {
 
     try {
       const { data, error } = await supabase.functions.invoke('create-order', {
-        body: { items, orderDetails },
+        body: { 
+          items, 
+          orderDetails,
+          coupon: appliedCoupon ? {
+            id: appliedCoupon.id,
+            code: appliedCoupon.code,
+            discount_percentage: appliedCoupon.discount_percentage
+          } : null
+        },
       });
 
       if (error || !data?.razorpayOrderId) {

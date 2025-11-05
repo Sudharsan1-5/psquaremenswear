@@ -64,20 +64,36 @@ serve(async (req) => {
       const qty = Number(it?.quantity) || 0;
       return sum + price * qty;
     }, 0);
-    const totalWithTax = subtotal * 1.18; // 18% tax
+    
+    // Apply coupon discount if available
+    const coupon = body?.coupon;
+    const discount = coupon ? (subtotal * (coupon.discount_percentage / 100)) : 0;
+    const subtotalAfterDiscount = subtotal - discount;
+    const totalWithTax = subtotalAfterDiscount * 1.18; // 18% tax
     const amount_paise = Math.round(totalWithTax * 100);
 
     // Insert order in DB (created)
+    // Prepare order data with coupon information
+    const orderData: any = {
+      user_id: user.id,
+      amount_paise,
+      currency: "INR",
+      items,
+      order_details: orderDetails,
+      status: "created",
+    };
+
+    // Add coupon information if available
+    if (coupon) {
+      orderData.coupon_id = coupon.id;
+      orderData.coupon_code = coupon.code;
+      orderData.discount_percentage = coupon.discount_percentage;
+      orderData.discount_amount = discount;
+    }
+
     const { data: inserted, error: insertErr } = await supabase
       .from("orders")
-      .insert({
-        user_id: user.id,
-        amount_paise,
-        currency: "INR",
-        items,
-        order_details: orderDetails,
-        status: "created",
-      })
+      .insert(orderData)
       .select("id")
       .single();
 

@@ -12,10 +12,10 @@ export default function OrderSuccess() {
   const [searchParams] = useSearchParams();
   
   // Try to get data from location.state first, then from URL params
-  let paymentId, orderDetails, items, total;
+  let paymentId, orderDetails, items, total, coupon;
   
   if (location.state) {
-    ({ paymentId, orderDetails, items, total } = location.state);
+    ({ paymentId, orderDetails, items, total, coupon } = location.state);
   } else {
     // Fallback: try to get from URL params (for new tab payments)
     paymentId = searchParams.get('payment_id');
@@ -23,7 +23,7 @@ export default function OrderSuccess() {
     if (orderDataParam) {
       try {
         const orderData = JSON.parse(orderDataParam);
-        ({ orderDetails, items, total } = orderData);
+        ({ orderDetails, items, total, coupon } = orderData);
       } catch (error) {
         console.error('Failed to parse order data from URL:', error);
       }
@@ -107,6 +107,23 @@ export default function OrderSuccess() {
                 
                 <Separator />
                 
+                {coupon && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Coupon Applied:</span>
+                    <span className="text-success font-medium">
+                      {coupon.code} ({coupon.discount_percentage}% off)
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>₹{total.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tax (18%)</span>
+                  <span>₹{(total * 0.18).toFixed(2)}</span>
+                </div>
+                <Separator />
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total Paid</span>
                   <span className="text-primary">₹{(total * 1.18).toFixed(2)}</span>

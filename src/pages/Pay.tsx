@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CreditCard } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 // Razorpay integration
 declare global {
@@ -16,6 +17,11 @@ interface OrderData {
   orderDetails: any;
   items: any[];
   total: number;
+  coupon?: {
+    id: string;
+    code: string;
+    discount_percentage: number;
+  } | null;
 }
 
 export default function Pay() {
@@ -85,7 +91,7 @@ export default function Pay() {
     document.body.appendChild(script);
   };
 
-  const initiatePayment = () => {
+  const initiatePayment = async () => {
     if (!orderData || !razorpayLoaded) {
       toast({
         title: "Not Ready",
@@ -97,75 +103,123 @@ export default function Pay() {
 
     setLoading(true);
 
-    // Calculate total with tax
-    const totalWithTax = orderData.total * 1.18;
-    
-    // Razorpay configuration with enhanced options
-    const options = {
-      key: import.meta.env.VITE_RAZORPAY_KEY || "rzp_test_8M2OUmvdX8Lyg7ByrEoyBiB4",
-      amount: Math.round(totalWithTax * 100), // Amount in paisa
-      currency: "INR",
-      name: "TechStore",
-      description: "Order Payment",
-      image: "/placeholder.svg",
-      redirect: true, // Enable redirect for iframe safety
-      method: {
-        upi: true,
-        card: true,
-        wallet: true,
-        netbanking: true
-      },
-      handler: function (response: any) {
-        console.log("Payment successful:", response);
-        
-        // Clear stored order data
-        localStorage.removeItem('checkout_order_data');
-        sessionStorage.removeItem('checkout_order_data');
-        
-        // Redirect to success page
-        const successUrl = new URL('/order-success', window.location.origin);
-        successUrl.searchParams.set('payment_id', response.razorpay_payment_id);
-        successUrl.searchParams.set('order_data', JSON.stringify({
-          paymentId: response.razorpay_payment_id,
-          orderDetails: orderData.orderDetails,
+    try {
+      // Call create-order endpoint to get the Razorpay order with correct amount
+      const { data, error } = await supabase.functions.invoke('create-order', {
+        body: { 
           items: orderData.items,
-          total: totalWithTax
-        }));
-        
-        window.location.href = successUrl.toString();
-      },
-      prefill: {
-        name: orderData.orderDetails.fullName,
-        email: orderData.orderDetails.email,
-        contact: orderData.orderDetails.phone,
-      },
-      theme: {
-        color: "#3B82F6",
-      },
-      modal: {
-        ondismiss: function() {
-          console.log("Payment modal dismissed");
-          setLoading(false);
-        }
-      }
-    };
+          orderDetails: orderData.orderDetails,
+          coupon: orderData.coupon || null
+        },
+      });
 
-    console.log("Initiating Razorpay payment with options:", options);
-    
-    const paymentObject = new window.Razorpay(options);
-    
-    paymentObject.on('payment.failed', function (response: any) {
-      console.log("Payment failed:", response);
+      if (error || !data?.razorpayOrderId) {
+        throw new Error(error?.message || 'Failed to create order');
+      }
+
+      const { razorpayOrderId, keyId, amount } = data;
       
-      // Redirect back to checkout with error
-      const checkoutUrl = new URL('/checkout', window.location.origin);
-      checkoutUrl.searchParams.set('error', 'payment_failed');
-      checkoutUrl.searchParams.set('error_description', response.error?.description || 'Payment failed');
+      const options = {
+        key: keyId,
+        amount: amount,
+        currency: "INR",
+        name: "PSquare Menswear",
+        description: `Order Payment${orderData.coupon ? ` (${orderData.coupon.code} applied)` : ''}`,
+        order_id: razorpayOrderId,
+        handler: async function (response: any) {
+          console.log("Payment successful:", response);
+          
+          try {
+            const verifyRes = await supabase.functions.invoke('verify-payment', {
+              body: {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              },
+            });
+
+            if (verifyRes.error || !verifyRes.data?.success) {
+              throw new Error(verifyRes.error?.message || 'Payment verification failed');
+            }
+
+            // Clear stored order data
+            localStorage.removeItem('checkout_order_data');
+            sessionStorage.removeItem('checkout_order_data');
+            
+            // Redirect to success page
+            const successUrl = new URL('/order-success', window.location.origin);
+            successUrl.searchParams.set('payment_id', response.razorpay_payment_id);
+            successUrl.searchParams.set('order_data', JSON.stringify({
+              paymentId: response.razorpay_payment_id,
+              orderDetails: orderData.orderDetails,
+              items: orderData.items,
+              total: orderData.total,
+              coupon: orderData.coupon
+            }));
+            
+            window.location.href = successUrl.toString();
+          } catch (err) {
+            console.error('Payment verification error:', err);
+            toast({
+              title: 'Verification Failed',
+              description: (err as Error).message || 'Failed to verify payment',
+              variant: 'destructive',
+            });
+            navigate('/checkout?error=verification_failed');
+          }
+        },
+        prefill: {
+          name: orderData.orderDetails.fullName,
+          email: orderData.orderDetails.email,
+          contact: orderData.orderDetails.phone,
+        },
+        theme: {
+          color: "#3B82F6",
+        },
+        modal: {
+          ondismiss: function() {
+            console.log("Payment modal dismissed");
+            setLoading(false);
+          }
+        },
+        method: {
+          upi: true,
+          card: true,
+          wallet: true,
+          netbanking: true
+        }
+      };
+
+      console.log("Initiating Razorpay payment with options:", options);
       
-      window.location.href = checkoutUrl.toString();
-    });
-    
-    paymentObject.open();
+      const paymentObject = new window.Razorpay(options);
+      
+      paymentObject.on('payment.failed', function (response: any) {
+        console.log("Payment failed:", response);
+        toast({
+          title: "Payment Failed",
+          description: response.error?.description || "Payment could not be completed",
+          variant: "destructive",
+        });
+        
+        // Redirect back to checkout with error
+        const checkoutUrl = new URL('/checkout', window.location.origin);
+        checkoutUrl.searchParams.set('error', 'payment_failed');
+        checkoutUrl.searchParams.set('error_description', response.error?.description || 'Payment failed');
+        
+        window.location.href = checkoutUrl.toString();
+      });
+      
+      paymentObject.open();
+    } catch (e: any) {
+      console.error('Payment initialization error:', e);
+      toast({
+        title: 'Payment Error',
+        description: e?.message || 'Failed to initialize payment',
+        variant: 'destructive',
+      });
+      setLoading(false);
+    }
   };
 
   if (loading) {
