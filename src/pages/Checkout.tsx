@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Truck, Shield, ExternalLink, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CreditCard, Truck, Shield, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -43,7 +43,6 @@ export default function Checkout() {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
-  const [isInIframe, setIsInIframe] = useState(false);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
@@ -64,9 +63,6 @@ export default function Checkout() {
   const finalTotal = subtotalAfterDiscount + tax;
 
   useEffect(() => {
-    // Check if running in iframe
-    setIsInIframe(window.self !== window.top);
-
     // Check for payment errors from URL params
     const error = searchParams.get('error');
     const errorDescription = searchParams.get('error_description');
@@ -78,10 +74,8 @@ export default function Checkout() {
       });
     }
 
-    // Load Razorpay script if not in iframe
-    if (window.self === window.top) {
-      loadRazorpayScript();
-    }
+    // Load Razorpay script
+    loadRazorpayScript();
   }, [searchParams, toast]);
 
   const loadRazorpayScript = () => {
@@ -187,64 +181,44 @@ export default function Checkout() {
     return required.every(field => orderDetails[field as keyof OrderDetails].trim() !== '');
   };
 
-  const handlePayInNewTab = () => {
-    if (!validateForm()) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Store order data in session storage
-    const orderData = {
-      orderDetails,
-      items,
-      total: finalTotal, // Use the discounted total
-      coupon: appliedCoupon ? {
-        id: appliedCoupon.id,
-        code: appliedCoupon.code,
-        discount_percentage: appliedCoupon.discount_percentage
-      } : null
-    };
-    
-    localStorage.setItem('checkout_order_data', JSON.stringify(orderData));
-    
-    // Open payment in new tab
-    const payUrl = new URL('/pay', window.location.origin);
-    window.open(payUrl.toString(), '_blank', 'noopener,noreferrer');
-  };
 
   const handlePayment = async () => {
+    // Validate form
     if (!validateForm()) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields.",
+        description: "Please fill in all required fields before proceeding.",
         variant: "destructive",
       });
       return;
     }
 
+    // Check authentication
     if (!user) {
-      toast({ title: "Login required", description: "Please sign in to continue." });
+      toast({ 
+        title: "Authentication Required", 
+        description: "Please sign in to complete your purchase.",
+        variant: "destructive"
+      });
       navigate('/auth');
+      return;
+    }
+
+    // Check Razorpay loaded
+    if (!razorpayLoaded || !window.Razorpay) {
+      toast({
+        title: "Payment Gateway Loading",
+        description: "Please wait a moment and try again.",
+        variant: "destructive",
+      });
       return;
     }
 
     setLoading(true);
 
-    if (!razorpayLoaded || !window.Razorpay) {
-      toast({
-        title: "Payment Error",
-        description: "Payment gateway is not ready. Please try again.",
-        variant: "destructive",
-      });
-      setLoading(false);
-      return;
-    }
-
     try {
+      // Step 1: Create order on backend
+      console.log('Creating order...');
       const { data, error } = await supabase.functions.invoke('create-order', {
         body: { 
           items, 
@@ -257,22 +231,32 @@ export default function Checkout() {
         },
       });
 
-      if (error || !data?.razorpayOrderId) {
-        throw new Error(error?.message || 'Failed to create order');
+      if (error) {
+        console.error('Order creation error:', error);
+        throw new Error(error.message || 'Failed to create order. Please try again.');
+      }
+
+      if (!data?.razorpayOrderId || !data?.keyId) {
+        console.error('Invalid order response:', data);
+        throw new Error('Invalid order response from server. Please contact support.');
       }
 
       const { razorpayOrderId, keyId, amount, currency } = data;
+      console.log('Order created successfully:', razorpayOrderId);
 
+      // Step 2: Configure Razorpay modal
       const options = {
         key: keyId,
-        amount,
-        currency,
-        name: "TechStore",
-        description: "Order Payment",
+        amount: amount,
+        currency: currency || "INR",
+        name: "P Square Menswear",
+        description: `Order Payment${appliedCoupon ? ` (${appliedCoupon.code} applied)` : ''}`,
         image: "/placeholder.svg",
         order_id: razorpayOrderId,
         handler: async function (response: any) {
+          console.log('Payment successful, verifying...');
           try {
+            // Step 3: Verify payment
             const verifyRes = await supabase.functions.invoke('verify-payment', {
               body: {
                 razorpay_order_id: response.razorpay_order_id,
@@ -281,32 +265,40 @@ export default function Checkout() {
               },
             });
 
-            if (verifyRes.error || !verifyRes.data?.success) {
-              throw new Error(verifyRes.error?.message || 'Payment verification failed');
+            if (verifyRes.error) {
+              console.error('Verification error:', verifyRes.error);
+              throw new Error(verifyRes.error.message || 'Payment verification failed');
             }
 
+            if (!verifyRes.data?.success) {
+              throw new Error('Payment verification failed. Please contact support with payment ID: ' + response.razorpay_payment_id);
+            }
+
+            console.log('Payment verified successfully');
+            
+            // Step 4: Success - clear cart and navigate
             toast({
-              title: "Payment Successful!",
-              description: `Payment ID: ${response.razorpay_payment_id}`,
+              title: "Payment Successful! 🎉",
+              description: `Your order has been confirmed. Payment ID: ${response.razorpay_payment_id}`,
             });
-            const totalWithTax = total * 1.18;
+            
             clearCart();
             navigate('/order-success', {
               state: {
                 paymentId: response.razorpay_payment_id,
                 orderDetails,
                 items,
-                total: totalWithTax,
+                total: finalTotal,
               },
             });
           } catch (err) {
+            console.error('Payment verification error:', err);
+            const errorMsg = err instanceof Error ? err.message : 'Payment verification failed';
             toast({
               title: 'Verification Failed',
-              description: (err as Error).message,
+              description: errorMsg,
               variant: 'destructive',
             });
-            navigate('/checkout?error=payment_failed&error_description=Verification%20failed');
-          } finally {
             setLoading(false);
           }
         },
@@ -315,34 +307,70 @@ export default function Checkout() {
           email: orderDetails.email,
           contact: orderDetails.phone,
         },
-        theme: { color: "#3B82F6" },
+        notes: {
+          order_type: 'ecommerce',
+          customer_id: user.id,
+        },
+        theme: { 
+          color: "#3B82F6",
+          backdrop_color: "rgba(0, 0, 0, 0.5)"
+        },
         modal: {
           ondismiss: function () {
+            console.log('Payment modal dismissed by user');
+            toast({
+              title: "Payment Cancelled",
+              description: "You can continue shopping or try payment again.",
+            });
             setLoading(false);
           },
+          escape: true,
+          confirm_close: true,
         },
-        method: { upi: true, card: true, wallet: true, netbanking: true },
+        method: { 
+          upi: true, 
+          card: true, 
+          wallet: true, 
+          netbanking: true 
+        },
       } as any;
 
+      // Step 5: Open Razorpay modal
+      console.log('Opening Razorpay modal...');
       const paymentObject = new window.Razorpay(options);
 
+      // Handle payment failures
       paymentObject.on('payment.failed', function (response: any) {
+        console.error('Payment failed:', response.error);
+        const errorDesc = response.error?.description || 'Payment could not be completed';
+        const errorReason = response.error?.reason || '';
+        
+        let userMessage = errorDesc;
+        if (errorReason === 'payment_failed') {
+          userMessage = 'Payment declined. Please check your payment details and try again.';
+        } else if (errorReason === 'payment_cancelled') {
+          userMessage = 'Payment was cancelled. Please try again when ready.';
+        }
+
         toast({
           title: "Payment Failed",
-          description: `Error: ${response.error?.description || "Please try again or use a different payment method."}`,
+          description: userMessage,
           variant: "destructive",
         });
         setLoading(false);
-        const checkoutUrl = new URL('/checkout', window.location.origin);
-        checkoutUrl.searchParams.set('error', 'payment_failed');
-        checkoutUrl.searchParams.set('error_description', response.error?.description || 'Payment failed');
-        window.location.href = checkoutUrl.toString();
       });
 
       paymentObject.open();
+      
     } catch (e: any) {
-      console.error('Payment init error', e);
-      toast({ title: 'Payment Error', description: e?.message || 'Something went wrong', variant: 'destructive' });
+      console.error('Payment initialization error:', e);
+      const errorMessage = e?.message || 'Unable to initialize payment. Please check your connection and try again.';
+      
+      toast({ 
+        title: 'Payment Error', 
+        description: errorMessage, 
+        variant: 'destructive' 
+      });
       setLoading(false);
     }
   };
@@ -378,24 +406,6 @@ export default function Checkout() {
           <h1 className="text-3xl font-bold">Checkout</h1>
         </div>
 
-        {/* Iframe Detection Banner */}
-        {isInIframe && (
-          <Card className="mb-6 border-amber-200 bg-amber-50 dark:bg-amber-950/50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="h-5 w-5 text-amber-600" />
-                <div className="flex-1">
-                  <p className="font-medium text-amber-800 dark:text-amber-200">
-                    For secure payments, checkout opens in a new tab
-                  </p>
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Payment gateways work best in full browser windows
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Order Form */}
@@ -578,26 +588,29 @@ export default function Checkout() {
                   </div>
                 </div>
 
-                {isInIframe ? (
-                  <Button
-                    onClick={handlePayInNewTab}
-                    disabled={loading}
-                    className="w-full bg-gradient-primary hover:shadow-glow transition-all duration-300"
-                    size="lg"
-                  >
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Pay in New Tab ₹{finalTotal.toFixed(2)}
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handlePayment}
-                    disabled={loading || !razorpayLoaded}
-                    className="w-full bg-gradient-primary hover:shadow-glow transition-all duration-300"
-                    size="lg"
-                  >
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    {loading ? "Processing..." : `Pay ₹${finalTotal.toFixed(2)}`}
-                  </Button>
+                <Button
+                  onClick={handlePayment}
+                  disabled={loading || !razorpayLoaded}
+                  className="w-full bg-gradient-primary hover:shadow-glow transition-all duration-300"
+                  size="lg"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing Payment...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      Pay Now ₹{finalTotal.toFixed(2)}
+                    </>
+                  )}
+                </Button>
+
+                {!razorpayLoaded && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Loading payment gateway...
+                  </p>
                 )}
 
                 <p className="text-xs text-muted-foreground text-center">

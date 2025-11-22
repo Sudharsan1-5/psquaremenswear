@@ -52,9 +52,13 @@ export type Database = {
           amount_paise: number
           created_at: string
           currency: string
+          currency_code: string | null
           id: string
           items: Json
           order_details: Json | null
+          payment_gateway: string | null
+          paypal_capture_id: string | null
+          paypal_order_id: string | null
           razorpay_order_id: string | null
           razorpay_payment_id: string | null
           razorpay_signature: string | null
@@ -66,9 +70,13 @@ export type Database = {
           amount_paise: number
           created_at?: string
           currency?: string
+          currency_code?: string | null
           id?: string
           items: Json
           order_details?: Json | null
+          payment_gateway?: string | null
+          paypal_capture_id?: string | null
+          paypal_order_id?: string | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           razorpay_signature?: string | null
@@ -80,9 +88,13 @@ export type Database = {
           amount_paise?: number
           created_at?: string
           currency?: string
+          currency_code?: string | null
           id?: string
           items?: Json
           order_details?: Json | null
+          payment_gateway?: string | null
+          paypal_capture_id?: string | null
+          paypal_order_id?: string | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           razorpay_signature?: string | null
