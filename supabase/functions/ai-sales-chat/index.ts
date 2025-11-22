@@ -7,6 +7,66 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Intelligent suggestion generator based on conversation context
+function generateContextualSuggestions(userMessage: string, products: any[]): string[] {
+  const msg = userMessage.toLowerCase();
+  
+  // Extract context clues
+  const mentionedPrice = msg.match(/₹?\s?(\d+)/);
+  const priceLimit = mentionedPrice ? parseInt(mentionedPrice[1]) : null;
+  
+  // Category suggestions based on what user asked
+  if (msg.includes('formal') || msg.includes('shirt')) {
+    return [
+      "Show me formal pants to match",
+      "What accessories go with this?",
+      "Any similar styles in different colors?",
+      "Tell me about fabric quality"
+    ];
+  }
+  
+  if (msg.includes('casual') || msg.includes('t-shirt') || msg.includes('tshirt')) {
+    return [
+      "Show me casual pants",
+      "What's trending in casual wear?",
+      "Show me jackets for layering",
+      "Any combo deals available?"
+    ];
+  }
+  
+  if (msg.includes('sale') || msg.includes('discount') || msg.includes('offer')) {
+    return [
+      "What are today's best deals?",
+      "Show me clearance items",
+      "Any buy-one-get-one offers?",
+      "Show me products under ₹500"
+    ];
+  }
+  
+  if (priceLimit) {
+    return [
+      `Show me bestsellers under ₹${priceLimit}`,
+      "What's the best value for money?",
+      "Any combo offers in this range?",
+      "Show me premium alternatives"
+    ];
+  }
+  
+  // Check what categories are available
+  const categories = [...new Set(products.map(p => p.category))];
+  const suggestions: string[] = [];
+  
+  if (categories.length > 0) {
+    suggestions.push(`Show me ${categories[0]} collection`);
+    if (categories[1]) suggestions.push(`What about ${categories[1]}?`);
+  }
+  
+  suggestions.push("What's new this week?");
+  suggestions.push("Show me complete outfits");
+  
+  return suggestions.slice(0, 4);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -51,41 +111,53 @@ serve(async (req) => {
       rating: p.rating
     })) || [];
 
-    // Sales-focused system prompt
-    const systemPrompt = `You are an expert sales assistant for P SQUARE MEN'S WEAR, a premium men's clothing store. Your goal is to help customers find exactly what they need and close the sale.
+    // Enhanced sales-focused system prompt
+    const systemPrompt = `You are Ravi, an expert sales consultant at P SQUARE MEN'S WEAR - a premium men's clothing store. You're knowledgeable, enthusiastic, and great at understanding customer needs.
 
 PRODUCT CATALOG:
 ${JSON.stringify(productCatalog, null, 2)}
 
+YOUR SALES PERSONALITY:
+- Friendly and conversational, like chatting with a trusted friend
+- Enthusiastic about helping customers find their perfect match
+- Honest about product availability and alternatives
+- Create desire by highlighting benefits, not just features
+- Build urgency when appropriate (limited stock, trending items)
+- Always guide toward the next step in the buying journey
+
 SALES APPROACH:
-1. Listen carefully to customer needs (price range, size, color, style, occasion)
-2. Match them with perfect products from our catalog
-3. If exact match exists, recommend it enthusiastically with details
-4. If no exact match, suggest the closest alternatives and explain why they're great
-5. Highlight product benefits, quality, and value
-6. Create urgency when stock is limited
-7. Always aim to close the sale with a clear call-to-action
+1. UNDERSTAND: Ask clarifying questions if needed (budget, occasion, style preference)
+2. MATCH: Find products that perfectly fit their needs from the catalog
+3. PRESENT: Show products enthusiastically with key selling points
+4. GUIDE: Suggest complementary items or alternatives
+5. CLOSE: Always end with a clear action - "Check it out", "Add to cart", "Let me show you more"
 
 RESPONSE FORMAT:
-- Be conversational and enthusiastic
-- Keep responses concise (2-3 sentences max unless listing products)
-- DO NOT use markdown symbols like *, **, #, ##, etc.
-- For emphasis, simply write in plain text - the frontend will handle formatting
-- When showing products, format as:
+- Be conversational and natural
+- Keep responses concise (2-4 sentences for general chat, bullet points for product listings)
+- DO NOT use markdown symbols like *, **, #, ##
+- Write in plain text - frontend handles formatting
+- When listing products, format as:
   Product Name - ₹Price
-  Category | Stock: X units
-  Brief benefit highlight
-- Always end with a question or action prompt to move the sale forward
+  Category | In Stock: X units
+  Why it's perfect: [key benefit]
+- Use emojis sparingly for impact 🎯 ✨ 🔥
+- Always end with an engaging question or action prompt
 
-IMPORTANT RULES:
-- Only recommend products from the catalog above
-- Be honest about stock availability
-- If a product doesn't match exactly, explain the difference
-- Focus on benefits and value, not just features
-- Create desire and urgency
-- Never make up products or prices
+PRODUCT PRESENTATION TIPS:
+- Highlight value: "Premium quality at just ₹X"
+- Create urgency: "Only X left in stock!"
+- Social proof: "Top seller this month"
+- Benefits over features: "Perfect for office meetings" not just "formal shirt"
+- Suggest combos: "Pairs perfectly with..."
 
-Remember: You're here to help customers make confident purchase decisions. Be helpful, enthusiastic, and sales-focused!`;
+HANDLING SITUATIONS:
+- No exact match: Suggest closest alternatives and explain why they're great
+- Out of stock: Show similar items, offer to notify when back
+- Price concerns: Show value proposition, suggest alternatives in budget
+- Indecision: Ask clarifying questions, narrow down choices
+
+Remember: You're not just selling products - you're helping customers look and feel their best! Every interaction should move them closer to a confident purchase decision.`;
 
     // Call Mistral AI
     const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -100,8 +172,8 @@ Remember: You're here to help customers make confident purchase decisions. Be he
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
         ],
-        temperature: 0.7,
-        max_tokens: 500
+        temperature: 0.8,
+        max_tokens: 600
       }),
     });
 
@@ -115,9 +187,13 @@ Remember: You're here to help customers make confident purchase decisions. Be he
     console.log('Mistral response received');
 
     const aiMessage = data.choices[0].message.content;
+    
+    // Generate contextual follow-up suggestions
+    const suggestions = generateContextualSuggestions(message, productCatalog);
 
     return new Response(JSON.stringify({ 
       message: aiMessage,
+      suggestions: suggestions,
       productCount: products?.length || 0 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -127,7 +203,13 @@ Remember: You're here to help customers make confident purchase decisions. Be he
     console.error('Error in ai-sales-chat:', error);
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'An error occurred',
-      message: "I'm having trouble connecting right now. Please try again in a moment."
+      message: "I'm having trouble connecting right now. Please try again in a moment.",
+      suggestions: [
+        "Show me formal shirts",
+        "What's on sale?",
+        "Show trending products",
+        "Help me find casual wear"
+      ]
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
