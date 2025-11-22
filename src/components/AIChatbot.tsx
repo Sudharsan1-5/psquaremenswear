@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MessageCircle, X, Send, Loader2, Sparkles } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, Sparkles, Mic, MicOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card } from '@/components/ui/card';
@@ -18,6 +19,13 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   suggestions?: string[];
+  isStreaming?: boolean;
+}
+
+interface NavigationCommand {
+  type: 'navigate';
+  path: string;
+  message: string;
 }
 
 const quickStartQuestions = [
@@ -28,6 +36,7 @@ const quickStartQuestions = [
 ];
 
 export default function AIChatbot() {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -38,7 +47,9 @@ export default function AIChatbot() {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
   const { toast } = useToast();
 
   const scrollToBottom = () => {
@@ -49,6 +60,94 @@ export default function AIChatbot() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    // Initialize Web Speech API
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-US';
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInput(transcript);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+        toast({
+          title: "Voice Input Error",
+          description: event.error === 'no-speech' 
+            ? "No speech detected. Please try again."
+            : "Could not process voice input. Please try again.",
+          variant: "destructive"
+        });
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, [toast]);
+
+  const toggleVoiceInput = () => {
+    if (!recognitionRef.current) {
+      toast({
+        title: "Not Supported",
+        description: "Voice input is not supported in your browser.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (error) {
+        console.error('Error starting recognition:', error);
+        toast({
+          title: "Voice Input Error",
+          description: "Could not start voice input. Please try again.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const handleNavigation = (navCommand: NavigationCommand) => {
+    toast({
+      title: "Navigating...",
+      description: navCommand.message,
+    });
+
+    setTimeout(() => {
+      setIsOpen(false);
+      navigate(navCommand.path);
+      
+      setTimeout(() => {
+        const element = document.getElementById(navCommand.path.split('#')[1]);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 100);
+    }, 500);
+  };
+
   const sendMessage = async (messageText?: string) => {
     const textToSend = messageText || input.trim();
     if (!textToSend || isLoading) return;
@@ -57,18 +156,83 @@ export default function AIChatbot() {
     setMessages(prev => [...prev, { role: 'user', content: textToSend }]);
     setIsLoading(true);
 
+    // Add placeholder message for streaming
+    setMessages(prev => [...prev, { 
+      role: 'assistant', 
+      content: '',
+      isStreaming: true
+    }]);
+
     try {
-      const { data, error } = await supabase.functions.invoke('ai-sales-chat', {
-        body: { message: textToSend }
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-sales-chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({ message: textToSend })
+        }
+      );
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to connect');
 
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: data.message,
-        suggestions: data.suggestions || []
-      }]);
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let fullMessage = '';
+      let suggestions: string[] = [];
+      let navigationCommand: NavigationCommand | null = null;
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                
+                if (data.type === 'token') {
+                  fullMessage += data.content;
+                  setMessages(prev => {
+                    const newMessages = [...prev];
+                    const lastMessage = newMessages[newMessages.length - 1];
+                    if (lastMessage.role === 'assistant' && lastMessage.isStreaming) {
+                      lastMessage.content = fullMessage;
+                    }
+                    return newMessages;
+                  });
+                } else if (data.type === 'suggestions') {
+                  suggestions = data.suggestions;
+                } else if (data.type === 'navigation') {
+                  navigationCommand = data.command;
+                } else if (data.type === 'done') {
+                  setMessages(prev => {
+                    const newMessages = [...prev];
+                    const lastMessage = newMessages[newMessages.length - 1];
+                    if (lastMessage.role === 'assistant') {
+                      lastMessage.isStreaming = false;
+                      lastMessage.suggestions = suggestions;
+                    }
+                    return newMessages;
+                  });
+
+                  if (navigationCommand) {
+                    handleNavigation(navigationCommand);
+                  }
+                }
+              } catch (e) {
+                console.error('Error parsing chunk:', e);
+              }
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error('Chat error:', error);
       toast({
@@ -76,11 +240,16 @@ export default function AIChatbot() {
         description: "Couldn't reach our AI assistant. Please try again.",
         variant: "destructive"
       });
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: "Sorry, I'm having trouble connecting. Please try again in a moment!",
-        suggestions: quickStartQuestions
-      }]);
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const lastMessage = newMessages[newMessages.length - 1];
+        if (lastMessage.role === 'assistant' && lastMessage.isStreaming) {
+          lastMessage.content = "Sorry, I'm having trouble connecting. Please try again in a moment!";
+          lastMessage.isStreaming = false;
+          lastMessage.suggestions = quickStartQuestions;
+        }
+        return newMessages;
+      });
     } finally {
       setIsLoading(false);
     }
@@ -193,11 +362,24 @@ export default function AIChatbot() {
                 onKeyPress={handleKeyPress}
                 placeholder="Ask me anything about our products..."
                 className="flex-1 h-11 text-sm bg-muted/50 border-border focus:border-primary"
-                disabled={isLoading}
+                disabled={isLoading || isListening}
               />
               <Button
+                onClick={toggleVoiceInput}
+                disabled={isLoading}
+                size="icon"
+                variant={isListening ? "destructive" : "outline"}
+                className="h-11 w-11 touch-manipulation"
+              >
+                {isListening ? (
+                  <MicOff className="h-5 w-5 animate-pulse" />
+                ) : (
+                  <Mic className="h-5 w-5" />
+                )}
+              </Button>
+              <Button
                 onClick={() => sendMessage()}
-                disabled={!input.trim() || isLoading}
+                disabled={!input.trim() || isLoading || isListening}
                 size="icon"
                 className="bg-gradient-primary hover:shadow-glow h-11 w-11 touch-manipulation"
               >
@@ -205,7 +387,7 @@ export default function AIChatbot() {
               </Button>
             </div>
             <p className="text-[10px] text-muted-foreground mt-2 text-center">
-              💡 Try: "Show me trending products" or "Formal shirts under ₹800"
+              💡 Try voice or type: "Show me trending products" or "Formal shirts under ₹800"
             </p>
           </div>
         </div>

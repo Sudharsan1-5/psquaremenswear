@@ -67,6 +67,57 @@ function generateContextualSuggestions(userMessage: string, products: any[]): st
   return suggestions.slice(0, 4);
 }
 
+// Helper to detect navigation intent
+function detectNavigationIntent(message: string, products: any[]) {
+  const msg = message.toLowerCase();
+  
+  // Check for specific product mentions
+  for (const product of products) {
+    if (msg.includes(product.name.toLowerCase())) {
+      return {
+        type: 'navigation',
+        path: `/product/${product.id}`,
+        message: `Taking you to ${product.name}...`
+      };
+    }
+  }
+  
+  // Check for category navigation
+  if (msg.includes('formal') || msg.includes('shirt')) {
+    return {
+      type: 'navigation',
+      path: '/products?category=Formal Shirts',
+      message: 'Taking you to our formal shirts collection...'
+    };
+  }
+  
+  if (msg.includes('casual')) {
+    return {
+      type: 'navigation',
+      path: '/products?category=Casual',
+      message: 'Taking you to our casual wear collection...'
+    };
+  }
+  
+  if (msg.includes('checkout') || msg.includes('cart')) {
+    return {
+      type: 'navigation',
+      path: '/checkout',
+      message: 'Taking you to checkout...'
+    };
+  }
+
+  if (msg.includes('all products') || msg.includes('browse') || msg.includes('shop')) {
+    return {
+      type: 'navigation',
+      path: '/products',
+      message: 'Taking you to our products page...'
+    };
+  }
+  
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -111,92 +162,152 @@ serve(async (req) => {
       rating: p.rating
     })) || [];
 
-    // Enhanced sales-focused system prompt
+    // Detect navigation intent
+    const navigationCommand = detectNavigationIntent(message, productCatalog);
+
+    // Enhanced sales-focused system prompt with navigation
     const systemPrompt = `You are Ravi, an expert sales consultant at P SQUARE MEN'S WEAR - a premium men's clothing store. You're knowledgeable, enthusiastic, and great at understanding customer needs.
 
 PRODUCT CATALOG:
 ${JSON.stringify(productCatalog, null, 2)}
 
 YOUR SALES PERSONALITY:
-- Friendly and conversational, like chatting with a trusted friend
-- Enthusiastic about helping customers find their perfect match
-- Honest about product availability and alternatives
-- Create desire by highlighting benefits, not just features
-- Build urgency when appropriate (limited stock, trending items)
-- Always guide toward the next step in the buying journey
+- Warm, friendly, and genuinely helpful - speak naturally like a real person
+- Use conversational language with personality and enthusiasm
+- Show empathy and understanding of customer needs
+- Create excitement about products without being pushy
+- Build trust through honest recommendations
+- Guide customers smoothly through their shopping journey
 
 SALES APPROACH:
-1. UNDERSTAND: Ask clarifying questions if needed (budget, occasion, style preference)
-2. MATCH: Find products that perfectly fit their needs from the catalog
-3. PRESENT: Show products enthusiastically with key selling points
-4. GUIDE: Suggest complementary items or alternatives
-5. CLOSE: Always end with a clear action - "Check it out", "Add to cart", "Let me show you more"
+1. LISTEN & UNDERSTAND: Really hear what the customer wants
+2. RECOMMEND: Match them with perfect products from our catalog
+3. EXPLAIN: Share why it's great for THEM specifically
+4. NAVIGATE: Guide them to view products when they're interested
+5. FOLLOW UP: Ask natural follow-up questions to help more
 
-RESPONSE FORMAT:
-- Be conversational and natural
-- Keep responses concise (2-4 sentences for general chat, bullet points for product listings)
-- DO NOT use markdown symbols like *, **, #, ##
-- Write in plain text - frontend handles formatting
-- When listing products, format as:
-  Product Name - ₹Price
-  Category | In Stock: X units
-  Why it's perfect: [key benefit]
-- Use emojis sparingly for impact 🎯 ✨ 🔥
-- Always end with an engaging question or action prompt
+COMMUNICATION STYLE:
+- Speak like a helpful friend, not a robot
+- Use natural expressions: "I think you'd love...", "Have you considered...", "Let me show you..."
+- Keep it conversational and flowing
+- Vary your sentence structure and length
+- Show personality with appropriate emojis 😊 ✨ 🎯
+- DO NOT use markdown *, **, #, ## - speak in plain conversational text
 
-PRODUCT PRESENTATION TIPS:
-- Highlight value: "Premium quality at just ₹X"
-- Create urgency: "Only X left in stock!"
-- Social proof: "Top seller this month"
-- Benefits over features: "Perfect for office meetings" not just "formal shirt"
-- Suggest combos: "Pairs perfectly with..."
+NAVIGATION & GUIDANCE:
+- When customer shows interest in products, tell them you'll take them there
+- Use phrases like: "Let me take you to that product", "I'll show you our collection", "Taking you there now!"
+- Be proactive in guiding them to relevant pages
 
-HANDLING SITUATIONS:
-- No exact match: Suggest closest alternatives and explain why they're great
-- Out of stock: Show similar items, offer to notify when back
-- Price concerns: Show value proposition, suggest alternatives in budget
-- Indecision: Ask clarifying questions, narrow down choices
+PRODUCT RECOMMENDATIONS:
+- Highlight what makes it special for THIS customer
+- "This would be perfect for..." instead of just listing features
+- Create desire: "Imagine yourself in this at..."
+- Show confidence: "I really think you'll love..."
+- Build urgency naturally: "These are flying off the shelves"
 
-Remember: You're not just selling products - you're helping customers look and feel their best! Every interaction should move them closer to a confident purchase decision.`;
+HANDLING RESPONSES:
+- Budget concerns: "I have something amazing in your range..."
+- Unsure customer: "Tell me more about what you're looking for"
+- No exact match: "While we don't have that exact item, I have something even better..."
+- Out of stock: "That's popular! Let me show you something similar that customers love"
 
-    // Call Mistral AI
-    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${MISTRAL_API_KEY}`,
-        'Content-Type': 'application/json',
+Remember: You're a real person helping them find what they need. Be warm, helpful, and guide them naturally through their shopping journey. Build rapport and make it feel like they're shopping with a knowledgeable friend!`;
+
+    // Create streaming response
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // Call Mistral AI with streaming
+          const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${MISTRAL_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'mistral-large-latest',
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: message }
+              ],
+              temperature: 0.8,
+              max_tokens: 600,
+              stream: true
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Mistral API error: ${response.status}`);
+          }
+
+          const reader = response.body?.getReader();
+          const decoder = new TextDecoder();
+
+          if (reader) {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              const chunk = decoder.decode(value, { stream: true });
+              const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6);
+                  if (data === '[DONE]') continue;
+
+                  try {
+                    const parsed = JSON.parse(data);
+                    const content = parsed.choices[0]?.delta?.content;
+                    
+                    if (content) {
+                      controller.enqueue(
+                        encoder.encode(`data: ${JSON.stringify({ type: 'token', content })}\n\n`)
+                      );
+                    }
+                  } catch (e) {
+                    // Skip invalid JSON
+                  }
+                }
+              }
+            }
+          }
+
+          // Send suggestions
+          const suggestions = generateContextualSuggestions(message, productCatalog);
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: 'suggestions', suggestions })}\n\n`)
+          );
+
+          // Send navigation command if detected
+          if (navigationCommand) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: 'navigation', command: navigationCommand })}\n\n`)
+            );
+          }
+
+          // Send done signal
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
+          );
+
+          controller.close();
+        } catch (error) {
+          console.error('Streaming error:', error);
+          controller.error(error);
+        }
       },
-      body: JSON.stringify({
-        model: 'mistral-large-latest',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
-        temperature: 0.8,
-        max_tokens: 600
-      }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Mistral API error:', response.status, errorText);
-      throw new Error(`Mistral API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    console.log('Mistral response received');
-
-    const aiMessage = data.choices[0].message.content;
-    
-    // Generate contextual follow-up suggestions
-    const suggestions = generateContextualSuggestions(message, productCatalog);
-
-    return new Response(JSON.stringify({ 
-      message: aiMessage,
-      suggestions: suggestions,
-      productCount: products?.length || 0 
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return new Response(stream, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
     });
 
   } catch (error) {
