@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Product, useWishlist } from '@/contexts/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import { getProductImageUrl } from '@/utils/imageLoader';
 
 interface ProductCardProps {
   product: Product;
@@ -80,21 +81,19 @@ export function ProductCard({ product }: ProductCardProps) {
       onMouseLeave={(e) => e.currentTarget.classList.remove('ring-1', 'ring-primary/20')}
     >
       <div className="relative overflow-hidden aspect-square">
-        {product.image_url ? (
-          <img
-            src={product.image_url}
-            alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-            loading="lazy"
-            onError={(e) => {
-              e.currentTarget.src = '/placeholder.svg';
-            }}
-          />
-        ) : (
-          <div className="w-full h-full bg-muted flex items-center justify-center">
-            <span className="text-muted-foreground text-xs">No image</span>
-          </div>
-        )}
+        <img
+          src={getProductImageUrl(product.image_url)}
+          alt={product.name}
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          loading="lazy"
+          onError={(e) => {
+            const target = e.currentTarget;
+            // Prevent infinite error loop
+            if (target.src !== '/placeholder.svg') {
+              target.src = '/placeholder.svg';
+            }
+          }}
+        />
         {/* Stock Status Badge - Moved to top-left */}
         <div className="absolute top-2 left-2 z-10">
           {product.stock < 10 && product.stock > 0 && (

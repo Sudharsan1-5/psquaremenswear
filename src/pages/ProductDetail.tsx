@@ -8,6 +8,7 @@ import { Product, useCart, useWishlist } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ProductCard } from '@/components/ProductCard';
+import { getProductImageUrl } from '@/utils/imageLoader';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -165,16 +166,17 @@ export default function ProductDetail() {
 
         <div className="grid md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
           <div className="relative">
-            {product.image_url ? (
-              <>
-                <img
-                  src={product.image_url}
-                  alt={product.name}
-                  className="w-full rounded-lg object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = '/placeholder.svg';
-                  }}
-                />
+            <img
+              src={getProductImageUrl(product.image_url)}
+              alt={product.name}
+              className="w-full rounded-lg object-cover"
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (target.src !== '/placeholder.svg') {
+                  target.src = '/placeholder.svg';
+                }
+              }}
+            />
                 {/* Mobile-friendly Share & Wishlist buttons - always visible */}
                 <div className="absolute top-2 right-2 flex gap-2">
                   <Button
@@ -204,12 +206,6 @@ export default function ProductDetail() {
                     <Heart className={`h-5 w-5 ${product && isInWishlist(product.id) ? 'fill-current' : ''}`} />
                   </Button>
                 </div>
-              </>
-            ) : (
-              <div className="w-full aspect-square bg-muted rounded-lg flex items-center justify-center">
-                <span className="text-muted-foreground">No image</span>
-              </div>
-            )}
             {product.stock < 10 && product.stock > 0 && (
               <Badge variant="destructive" className="absolute top-2 left-2">
                 Only {product.stock} left!
