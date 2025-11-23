@@ -13,6 +13,7 @@ import { TrustBadges } from '@/components/TrustBadges';
 import { SizeSelector } from '@/components/SizeSelector';
 import { ProductImageGallery } from '@/components/ProductImageGallery';
 import { ProductReviews } from '@/components/ProductReviews';
+import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -24,6 +25,8 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [selectedSize, setSelectedSize] = useState<string | undefined>(undefined);
+  const { addToRecentlyViewed, getRecentlyViewed } = useRecentlyViewed();
+  const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
 
   useEffect(() => {
     fetchProduct();
@@ -39,7 +42,14 @@ export default function ProductDetail() {
 
       if (error) throw error;
       setProduct(data);
-      
+
+      // Add to recently viewed
+      addToRecentlyViewed(data);
+
+      // Load recently viewed products (excluding current)
+      const recent = getRecentlyViewed().filter(p => p.id !== data.id).slice(0, 4);
+      setRecentlyViewed(recent);
+
       // Fetch related products from the same category
       if (data?.category) {
         const { data: related } = await supabase
@@ -48,7 +58,7 @@ export default function ProductDetail() {
           .eq('category', data.category)
           .neq('id', id)
           .limit(4);
-        
+
         setRelatedProducts(related || []);
       }
     } catch (error) {
@@ -306,6 +316,18 @@ export default function ProductDetail() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 lg:gap-6">
               {relatedProducts.map((relatedProduct) => (
                 <ProductCard key={relatedProduct.id} product={relatedProduct} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recently Viewed */}
+        {recentlyViewed.length > 0 && (
+          <div className="mt-8 sm:mt-12">
+            <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 px-1">Recently Viewed</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 lg:gap-6">
+              {recentlyViewed.map((viewedProduct) => (
+                <ProductCard key={viewedProduct.id} product={viewedProduct} />
               ))}
             </div>
           </div>
