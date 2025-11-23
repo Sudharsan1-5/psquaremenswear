@@ -76,15 +76,39 @@ export default function AIChatbot() {
       };
 
       recognitionRef.current.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
         setIsListening(false);
-        toast({
-          title: "Voice Input Error",
-          description: event.error === 'no-speech' 
-            ? "No speech detected. Please try again."
-            : "Could not process voice input. Please try again.",
-          variant: "destructive"
-        });
+        
+        // Handle specific error cases
+        if (event.error === 'not-allowed') {
+          toast({
+            title: "Microphone Access Denied",
+            description: "Please enable microphone access in your browser settings to use voice input.",
+            variant: "destructive"
+          });
+        } else if (event.error === 'no-speech') {
+          toast({
+            title: "No Speech Detected",
+            description: "Please speak clearly and try again.",
+          });
+        } else if (event.error === 'audio-capture') {
+          toast({
+            title: "No Microphone Found",
+            description: "Please check if your microphone is connected.",
+            variant: "destructive"
+          });
+        } else if (event.error === 'network') {
+          toast({
+            title: "Network Error",
+            description: "Speech recognition requires an internet connection.",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Voice Input Error",
+            description: "Could not process voice input. Please try typing instead.",
+            variant: "destructive"
+          });
+        }
       };
 
       recognitionRef.current.onend = () => {
@@ -281,7 +305,15 @@ export default function AIChatbot() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-0 right-0 left-0 sm:bottom-4 sm:right-4 sm:left-auto w-full sm:w-[min(90vw,420px)] h-[90vh] sm:h-[650px] sm:max-h-[90vh] bg-card border-t sm:border border-border sm:rounded-xl shadow-2xl flex flex-col z-50 overflow-hidden">
+        <div 
+          className="fixed bottom-0 right-0 left-0 sm:bottom-4 sm:right-4 sm:left-auto w-full sm:w-[min(90vw,420px)] h-[90vh] sm:h-[650px] sm:max-h-[90vh] bg-card border-t sm:border border-border sm:rounded-xl shadow-2xl flex flex-col z-50 overflow-hidden"
+          role="dialog"
+          aria-labelledby="chatbot-title"
+          aria-describedby="chatbot-description"
+        >
+          <div className="sr-only" id="chatbot-description">
+            AI-powered shopping assistant to help you find products
+          </div>
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border bg-gradient-primary">
             <div className="flex items-center gap-2">
@@ -289,7 +321,7 @@ export default function AIChatbot() {
                 <Sparkles className="h-5 w-5 text-primary-foreground animate-pulse" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-primary-foreground">AI Sales Assistant</h3>
+                <h3 id="chatbot-title" className="text-base font-bold text-primary-foreground">AI Sales Assistant</h3>
                 <p className="text-xs text-primary-foreground/80">Your personal stylist</p>
               </div>
             </div>
