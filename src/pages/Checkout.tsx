@@ -579,7 +579,9 @@ export default function Checkout() {
                       )}
                       <div>
                         <p className="font-medium text-sm">{item.name}</p>
-                        <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {item.selectedSize && `Size: ${item.selectedSize} • `}Qty: {item.quantity}
+                        </p>
                       </div>
                     </div>
                     <p className="font-semibold">₹{(item.price * item.quantity).toFixed(2)}</p>

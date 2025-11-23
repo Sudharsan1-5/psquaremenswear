@@ -13,6 +13,8 @@ export interface Product {
 
 export interface CartItem extends Product {
   quantity: number;
+  selectedSize?: string;
+  selectedColor?: string;
 }
 
 interface CartState {
@@ -22,9 +24,9 @@ interface CartState {
 }
 
 type CartAction =
-  | { type: 'ADD_TO_CART'; product: Product }
-  | { type: 'REMOVE_FROM_CART'; productId: string }
-  | { type: 'UPDATE_QUANTITY'; productId: string; quantity: number }
+  | { type: 'ADD_TO_CART'; product: Product; selectedSize?: string; selectedColor?: string }
+  | { type: 'REMOVE_FROM_CART'; productId: string; selectedSize?: string }
+  | { type: 'UPDATE_QUANTITY'; productId: string; quantity: number; selectedSize?: string }
   | { type: 'CLEAR_CART' };
 
 const initialState: CartState = {
@@ -36,49 +38,69 @@ const initialState: CartState = {
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
     case 'ADD_TO_CART': {
-      const existingItem = state.items.find(item => item.id === action.product.id);
-      
+      // Find existing item with same id AND size (treat different sizes as different items)
+      const existingItem = state.items.find(item =>
+        item.id === action.product.id &&
+        item.selectedSize === action.selectedSize
+      );
+
       if (existingItem) {
+        // Check if adding one more would exceed stock
+        if (existingItem.quantity >= action.product.stock) {
+          // Don't add more, return current state
+          return state;
+        }
         const updatedItems = state.items.map(item =>
-          item.id === action.product.id
-            ? { ...item, quantity: item.quantity + 1 }
+          item.id === action.product.id && item.selectedSize === action.selectedSize
+            ? { ...item, quantity: Math.min(item.quantity + 1, action.product.stock) }
             : item
         );
         const total = updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const itemCount = updatedItems.reduce((sum, item) => sum + item.quantity, 0);
-        
+
         return { items: updatedItems, total, itemCount };
       } else {
-        const newItem = { ...action.product, quantity: 1 };
+        // Check if product is in stock
+        if (action.product.stock <= 0) {
+          return state;
+        }
+        const newItem: CartItem = {
+          ...action.product,
+          quantity: 1,
+          selectedSize: action.selectedSize,
+          selectedColor: action.selectedColor
+        };
         const updatedItems = [...state.items, newItem];
         const total = updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const itemCount = updatedItems.reduce((sum, item) => sum + item.quantity, 0);
-        
+
         return { items: updatedItems, total, itemCount };
       }
     }
     
     case 'REMOVE_FROM_CART': {
-      const updatedItems = state.items.filter(item => item.id !== action.productId);
+      const updatedItems = state.items.filter(item =>
+        !(item.id === action.productId && item.selectedSize === action.selectedSize)
+      );
       const total = updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       const itemCount = updatedItems.reduce((sum, item) => sum + item.quantity, 0);
-      
+
       return { items: updatedItems, total, itemCount };
     }
-    
+
     case 'UPDATE_QUANTITY': {
       if (action.quantity <= 0) {
-        return cartReducer(state, { type: 'REMOVE_FROM_CART', productId: action.productId });
+        return cartReducer(state, { type: 'REMOVE_FROM_CART', productId: action.productId, selectedSize: action.selectedSize });
       }
-      
+
       const updatedItems = state.items.map(item =>
-        item.id === action.productId
-          ? { ...item, quantity: action.quantity }
+        item.id === action.productId && item.selectedSize === action.selectedSize
+          ? { ...item, quantity: Math.min(action.quantity, item.stock) }
           : item
       );
       const total = updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       const itemCount = updatedItems.reduce((sum, item) => sum + item.quantity, 0);
-      
+
       return { items: updatedItems, total, itemCount };
     }
     
@@ -91,9 +113,9 @@ function cartReducer(state: CartState, action: CartAction): CartState {
 }
 
 interface CartContextType extends CartState {
-  addToCart: (product: Product) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addToCart: (product: Product, selectedSize?: string, selectedColor?: string) => void;
+  removeFromCart: (productId: string, selectedSize?: string) => void;
+  updateQuantity: (productId: string, quantity: number, selectedSize?: string) => void;
   clearCart: () => void;
 }
 
@@ -102,16 +124,16 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(cartReducer, initialState);
 
-  const addToCart = (product: Product) => {
-    dispatch({ type: 'ADD_TO_CART', product });
+  const addToCart = (product: Product, selectedSize?: string, selectedColor?: string) => {
+    dispatch({ type: 'ADD_TO_CART', product, selectedSize, selectedColor });
   };
 
-  const removeFromCart = (productId: string) => {
-    dispatch({ type: 'REMOVE_FROM_CART', productId });
+  const removeFromCart = (productId: string, selectedSize?: string) => {
+    dispatch({ type: 'REMOVE_FROM_CART', productId, selectedSize });
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
-    dispatch({ type: 'UPDATE_QUANTITY', productId, quantity });
+  const updateQuantity = (productId: string, quantity: number, selectedSize?: string) => {
+    dispatch({ type: 'UPDATE_QUANTITY', productId, quantity, selectedSize });
   };
 
   const clearCart = () => {

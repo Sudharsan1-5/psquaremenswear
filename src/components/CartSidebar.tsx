@@ -54,6 +54,9 @@ export function CartSidebar() {
               )}
               <div className="flex-1 space-y-2 min-w-0">
                 <h4 className="font-medium text-xs sm:text-sm line-clamp-2">{item.name}</h4>
+                {item.selectedSize && (
+                  <p className="text-xs text-muted-foreground">Size: {item.selectedSize}</p>
+                )}
                 <p className="text-sm sm:text-base font-semibold text-primary">
                   ₹{item.price.toFixed(2)}
                 </p>
@@ -63,7 +66,7 @@ export function CartSidebar() {
                       variant="outline"
                       size="icon"
                       className="h-8 w-8 sm:h-9 sm:w-9 touch-manipulation"
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      onClick={() => updateQuantity(item.id, item.quantity - 1, item.selectedSize)}
                     >
                       <Minus className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
@@ -72,7 +75,9 @@ export function CartSidebar() {
                       variant="outline"
                       size="icon"
                       className="h-8 w-8 sm:h-9 sm:w-9 touch-manipulation"
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      onClick={() => updateQuantity(item.id, item.quantity + 1, item.selectedSize)}
+                      disabled={item.quantity >= item.stock}
+                      title={item.quantity >= item.stock ? `Only ${item.stock} available` : ''}
                     >
                       <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
@@ -81,11 +86,14 @@ export function CartSidebar() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 sm:h-9 sm:w-9 text-destructive touch-manipulation"
-                    onClick={() => removeFromCart(item.id)}
+                    onClick={() => removeFromCart(item.id, item.selectedSize)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
+                {item.quantity >= item.stock && item.stock > 0 && (
+                  <p className="text-xs text-amber-600 mt-1">Maximum available quantity</p>
+                )}
               </div>
             </div>
           ))}

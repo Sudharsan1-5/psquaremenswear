@@ -9,6 +9,10 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ProductCard } from '@/components/ProductCard';
 import { getProductImageUrl } from '@/utils/imageLoader';
+import { TrustBadges } from '@/components/TrustBadges';
+import { SizeSelector } from '@/components/SizeSelector';
+import { ProductImageGallery } from '@/components/ProductImageGallery';
+import { ProductReviews } from '@/components/ProductReviews';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -19,6 +23,7 @@ export default function ProductDetail() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [selectedSize, setSelectedSize] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     fetchProduct();
@@ -60,17 +65,33 @@ export default function ProductDetail() {
 
   const handleAddToCart = () => {
     if (product) {
-      addToCart(product);
+      if (!selectedSize) {
+        toast({
+          title: "Size Required",
+          description: "Please select a size before adding to cart.",
+          variant: "destructive"
+        });
+        return;
+      }
+      addToCart(product, selectedSize);
       toast({
         title: "Added to cart",
-        description: `${product.name} has been added to your cart.`,
+        description: `${product.name} (Size: ${selectedSize}) has been added to your cart.`,
       });
     }
   };
 
   const handleBuyNow = () => {
     if (product) {
-      addToCart(product);
+      if (!selectedSize) {
+        toast({
+          title: "Size Required",
+          description: "Please select a size before proceeding.",
+          variant: "destructive"
+        });
+        return;
+      }
+      addToCart(product, selectedSize);
       navigate('/checkout');
     }
   };
@@ -166,10 +187,11 @@ export default function ProductDetail() {
 
         <div className="grid md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
           <div className="relative">
-            <img
-              src={getProductImageUrl(product.image_url)}
-              alt={product.name}
-              className="w-full rounded-lg object-cover"
+            {/* Product Image Gallery */}
+            <ProductImageGallery
+              images={product.image_url ? product.image_url.split(',').map(url => getProductImageUrl(url.trim())) : []}
+              productName={product.name}
+              stock={product.stock}
               onError={(e) => {
                 const target = e.currentTarget;
                 if (target.src !== '/placeholder.svg') {
@@ -177,40 +199,36 @@ export default function ProductDetail() {
                 }
               }}
             />
-                {/* Mobile-friendly Share & Wishlist buttons - always visible */}
-                <div className="absolute top-2 right-2 flex gap-2">
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className="bg-white/90 hover:bg-white text-foreground shadow-lg h-10 w-10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleShare();
-                    }}
-                  >
-                    <Share2 className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className={`shadow-lg h-10 w-10 ${
-                      product && isInWishlist(product.id) 
-                        ? 'bg-destructive/90 hover:bg-destructive text-white' 
-                        : 'bg-white/90 hover:bg-white text-foreground'
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleWishlist();
-                    }}
-                  >
-                    <Heart className={`h-5 w-5 ${product && isInWishlist(product.id) ? 'fill-current' : ''}`} />
-                  </Button>
-                </div>
-            {product.stock < 10 && product.stock > 0 && (
-              <Badge variant="destructive" className="absolute top-2 left-2">
-                Only {product.stock} left!
-              </Badge>
-            )}
+
+            {/* Share & Wishlist buttons overlay */}
+            <div className="absolute top-2 right-2 flex gap-2 z-20">
+              <Button
+                size="icon"
+                variant="secondary"
+                className="bg-white/90 hover:bg-white text-foreground shadow-lg h-10 w-10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleShare();
+                }}
+              >
+                <Share2 className="h-5 w-5" />
+              </Button>
+              <Button
+                size="icon"
+                variant="secondary"
+                className={`shadow-lg h-10 w-10 ${
+                  product && isInWishlist(product.id)
+                    ? 'bg-destructive/90 hover:bg-destructive text-white'
+                    : 'bg-white/90 hover:bg-white text-foreground'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleWishlist();
+                }}
+              >
+                <Heart className={`h-5 w-5 ${product && isInWishlist(product.id) ? 'fill-current' : ''}`} />
+              </Button>
+            </div>
           </div>
 
           <div className="flex flex-col gap-4 sm:gap-6">
@@ -244,6 +262,17 @@ export default function ProductDetail() {
                 {product.description}
               </p>
             </div>
+
+            {/* Size Selection */}
+            <SizeSelector
+              category={product.category}
+              selectedSize={selectedSize}
+              onSizeSelect={setSelectedSize}
+              className="py-2"
+            />
+
+            {/* Trust Badges */}
+            <TrustBadges variant="compact" className="py-2" />
 
             {/* Desktop buttons */}
             <div className="hidden md:flex gap-3">
@@ -281,6 +310,21 @@ export default function ProductDetail() {
             </div>
           </div>
         )}
+
+        {/* Customer Reviews */}
+        <div className="mt-8 sm:mt-12">
+          <ProductReviews
+            productId={product.id}
+            productName={product.name}
+            currentRating={product.rating}
+          />
+        </div>
+
+        {/* Why Shop With Us */}
+        <div className="mt-8 sm:mt-12 mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 px-1">Why Shop With Us</h2>
+          <TrustBadges />
+        </div>
       </main>
 
       {/* Sticky mobile action buttons */}
