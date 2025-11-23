@@ -132,7 +132,22 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!MISTRAL_API_KEY) {
-      throw new Error('MISTRAL_API_KEY not configured');
+      // Return helpful fallback when API key is missing
+      const encoder = new TextEncoder();
+      const fallbackMsg = "I apologize, but I'm experiencing technical difficulties. However, you can browse our products above! What would you like to know about our store?";
+      
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'token', content: fallbackMsg })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'suggestions', suggestions: ['Show me all products', 'Browse categories', 'Tell me about your store'] })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+          controller.close();
+        }
+      });
+      
+      return new Response(stream, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+      });
     }
 
     // Initialize Supabase client
@@ -239,6 +254,23 @@ Remember: You're a real person helping them find what they need. Be warm, helpfu
           });
 
           if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Mistral API error: ${response.status}`, errorText);
+            
+            // Handle rate limiting gracefully
+            if (response.status === 429) {
+              const fallbackMsg = "I apologize, but I'm receiving a lot of requests right now! 😅 While I catch my breath, feel free to browse our products above. I'll be back to full speed shortly!";
+              
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'token', content: fallbackMsg })}\n\n`));
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+                type: 'suggestions', 
+                suggestions: ['Show me all products', 'What categories do you have?', 'Tell me about your store'] 
+              })}\n\n`));
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+              controller.close();
+              return;
+            }
+            
             throw new Error(`Mistral API error: ${response.status}`);
           }
 

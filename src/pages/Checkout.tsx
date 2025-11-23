@@ -173,23 +173,89 @@ export default function Checkout() {
   };
 
   const handleInputChange = (field: keyof OrderDetails, value: string) => {
-    setOrderDetails(prev => ({ ...prev, [field]: value }));
+    // Sanitize and validate input
+    let sanitizedValue = value.trim();
+    
+    // Prevent excessively long inputs
+    const maxLengths: { [key: string]: number } = {
+      fullName: 100,
+      email: 255,
+      phone: 15,
+      address: 200,
+      city: 50,
+      pincode: 10
+    };
+    
+    if (sanitizedValue.length > (maxLengths[field] || 100)) {
+      return;
+    }
+    
+    // Validate phone number (only digits, +, -, spaces, parentheses)
+    if (field === 'phone' && sanitizedValue && !/^[0-9+\-\s()]*$/.test(sanitizedValue)) {
+      return;
+    }
+    
+    // Validate pincode (only digits)
+    if (field === 'pincode' && sanitizedValue && !/^[0-9]*$/.test(sanitizedValue)) {
+      return;
+    }
+    
+    setOrderDetails(prev => ({ ...prev, [field]: sanitizedValue }));
   };
 
   const validateForm = () => {
+    // Check all required fields are filled
     const required = ['fullName', 'email', 'phone', 'address', 'city', 'pincode'];
-    return required.every(field => orderDetails[field as keyof OrderDetails].trim() !== '');
+    const allFilled = required.every(field => orderDetails[field as keyof OrderDetails].trim() !== '');
+    
+    if (!allFilled) {
+      toast({
+        title: "Incomplete Form",
+        description: "Please fill in all delivery details.",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(orderDetails.email)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    // Validate phone number (at least 10 digits)
+    const phoneDigits = orderDetails.phone.replace(/\D/g, '');
+    if (phoneDigits.length < 10) {
+      toast({
+        title: "Invalid Phone Number",
+        description: "Please enter a valid 10-digit phone number.",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    // Validate pincode (6 digits for India)
+    if (orderDetails.pincode.length !== 6 || !/^\d{6}$/.test(orderDetails.pincode)) {
+      toast({
+        title: "Invalid Pincode",
+        description: "Please enter a valid 6-digit pincode.",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    return true;
   };
 
 
   const handlePayment = async () => {
-    // Validate form
+    // Validate form first
     if (!validateForm()) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields before proceeding.",
-        variant: "destructive",
-      });
       return;
     }
 
