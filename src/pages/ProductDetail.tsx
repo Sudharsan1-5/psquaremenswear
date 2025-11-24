@@ -16,6 +16,7 @@ import { ProductReviews } from '@/components/ProductReviews';
 import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
 import { ActiveCoupons } from '@/components/ActiveCoupons';
 import { DeliveryEstimate } from '@/components/DeliveryEstimate';
+import { StockNotification } from '@/components/StockNotification';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -305,28 +306,32 @@ export default function ProductDetail() {
             <TrustBadges variant="compact" className="py-2" />
 
             {/* Desktop buttons */}
-            <div className="hidden md:flex gap-3">
-              <Button
-                onClick={handleAddToCart}
-                disabled={product.stock === 0}
-                size="lg"
-                variant="outline"
-                className="flex-1 text-base lg:text-lg py-6"
-              >
-                <ShoppingCart className="mr-2 h-5 w-5" />
-                Add to Cart
-              </Button>
-              
-              <Button
-                onClick={handleBuyNow}
-                disabled={product.stock === 0}
-                size="lg"
-                className="flex-1 bg-gradient-primary hover:shadow-glow transition-all duration-300 text-base lg:text-lg py-6"
-              >
-                <Zap className="mr-2 h-5 w-5" />
-                I Want This
-              </Button>
-            </div>
+            {product.stock === 0 ? (
+              <div className="hidden md:block">
+                <StockNotification productId={product.id} productName={product.name} />
+              </div>
+            ) : (
+              <div className="hidden md:flex gap-3">
+                <Button
+                  onClick={handleAddToCart}
+                  size="lg"
+                  variant="outline"
+                  className="flex-1 text-base lg:text-lg py-6"
+                >
+                  <ShoppingCart className="mr-2 h-5 w-5" />
+                  Add to Cart
+                </Button>
+
+                <Button
+                  onClick={handleBuyNow}
+                  size="lg"
+                  className="flex-1 bg-gradient-primary hover:shadow-glow transition-all duration-300 text-base lg:text-lg py-6"
+                >
+                  <Zap className="mr-2 h-5 w-5" />
+                  I Want This
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -371,26 +376,28 @@ export default function ProductDetail() {
 
       {/* Sticky mobile action buttons */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t p-3 z-40 shadow-lg">
-        <div className="flex gap-2">
-          <Button
-            onClick={handleAddToCart}
-            disabled={product.stock === 0}
-            variant="outline"
-            className="flex-1 h-12 text-base font-semibold"
-          >
-            <ShoppingCart className="mr-2 h-5 w-5" />
-            Add to Cart
-          </Button>
-          
-          <Button
-            onClick={handleBuyNow}
-            disabled={product.stock === 0}
-            className="flex-1 h-12 bg-gradient-primary hover:shadow-glow transition-all duration-300 text-base font-semibold"
-          >
-            <Zap className="mr-2 h-5 w-5" />
-            Buy Now
-          </Button>
-        </div>
+        {product.stock === 0 ? (
+          <StockNotification productId={product.id} productName={product.name} />
+        ) : (
+          <div className="flex gap-2">
+            <Button
+              onClick={handleAddToCart}
+              variant="outline"
+              className="flex-1 h-12 text-base font-semibold"
+            >
+              <ShoppingCart className="mr-2 h-5 w-5" />
+              Add to Cart
+            </Button>
+
+            <Button
+              onClick={handleBuyNow}
+              className="flex-1 h-12 bg-gradient-primary hover:shadow-glow transition-all duration-300 text-base font-semibold"
+            >
+              <Zap className="mr-2 h-5 w-5" />
+              Buy Now
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
