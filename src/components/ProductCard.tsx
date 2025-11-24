@@ -97,7 +97,7 @@ export function ProductCard({ product }: ProductCardProps) {
         {/* Stock Status Badge - Moved to top-left */}
         <div className="absolute top-2 left-2 z-10">
           {product.stock < 10 && product.stock > 0 && (
-            <div className="bg-red-500 text-white text-xs font-medium px-2 py-1 rounded-md shadow-md">
+            <div className="bg-red-500 text-white text-xs font-medium px-2 py-1 rounded-md shadow-md animate-pulse">
               Only {product.stock} left!
             </div>
           )}

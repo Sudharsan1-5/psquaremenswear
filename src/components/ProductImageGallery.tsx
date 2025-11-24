@@ -44,7 +44,7 @@ export function ProductImageGallery({ images, productName, stock, onError }: Pro
 
         {/* Stock Status Badge */}
         {stock < 10 && stock > 0 && (
-          <Badge variant="destructive" className="absolute top-3 left-3 z-10">
+          <Badge variant="destructive" className="absolute top-3 left-3 z-10 animate-pulse">
             Only {stock} left!
           </Badge>
         )}

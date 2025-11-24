@@ -14,6 +14,8 @@ import { SizeSelector } from '@/components/SizeSelector';
 import { ProductImageGallery } from '@/components/ProductImageGallery';
 import { ProductReviews } from '@/components/ProductReviews';
 import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
+import { ActiveCoupons } from '@/components/ActiveCoupons';
+import { DeliveryEstimate } from '@/components/DeliveryEstimate';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -84,9 +86,21 @@ export default function ProductDetail() {
         return;
       }
       addToCart(product, selectedSize);
-      toast({
-        title: "Added to cart",
-        description: `${product.name} (Size: ${selectedSize}) has been added to your cart.`,
+
+      // Enhanced success feedback with action
+      const toastRef = toast({
+        title: "✓ Added to cart!",
+        description: `${product.name} (Size: ${selectedSize})`,
+        action: (
+          <button
+            onClick={() => {
+              navigate('/checkout');
+            }}
+            className="inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium transition-colors hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          >
+            View Cart
+          </button>
+        ),
       });
     }
   };
@@ -273,6 +287,9 @@ export default function ProductDetail() {
               </p>
             </div>
 
+            {/* Active Coupons */}
+            <ActiveCoupons />
+
             {/* Size Selection */}
             <SizeSelector
               category={product.category}
@@ -280,6 +297,9 @@ export default function ProductDetail() {
               onSizeSelect={setSelectedSize}
               className="py-2"
             />
+
+            {/* Delivery Estimate */}
+            <DeliveryEstimate stock={product.stock} />
 
             {/* Trust Badges */}
             <TrustBadges variant="compact" className="py-2" />

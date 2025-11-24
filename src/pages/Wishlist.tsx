@@ -74,10 +74,20 @@ export default function Wishlist() {
 
   const handleAddToCart = (product: Product) => {
     addToCart(product);
-    
+
     toast({
-      title: 'Added to cart',
-      description: `${product.name} has been added to your cart`,
+      title: '✓ Added to cart!',
+      description: product.name,
+      action: (
+        <button
+          onClick={() => {
+            navigate('/checkout');
+          }}
+          className="inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium transition-colors hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+        >
+          View Cart
+        </button>
+      ),
     });
   };
 
